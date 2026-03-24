@@ -35,7 +35,7 @@
       display: flex;
       align-items: center;
       gap: 15px;
-    }
+    
     
     .header-logo {
       height: 40px;
@@ -4429,7 +4429,7 @@ async function submitOrder() {
     const lineTotal = (p.wholesale_price || 0) * item.quantity;
     orderSubtotal += lineTotal;
     return {
-      name: p.name || p.product || '',
+      name: p.name_jp || p.name_en || p.name || '',
       color: p.color || '-',
       size: p.size || '-',
       qty: item.quantity,
