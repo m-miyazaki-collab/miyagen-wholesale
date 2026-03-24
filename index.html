@@ -4422,16 +4422,38 @@ async function submitOrder() {
     return;
   }
   
+  // Calculate totals for order
+  let orderSubtotal = 0;
+  const orderItems = cart.map(function(item) {
+    const p = item.product;
+    const lineTotal = (p.wholesale_price || 0) * item.quantity;
+    orderSubtotal += lineTotal;
+    return {
+      name: p.name || p.product || '',
+      color: p.color || '-',
+      size: p.size || '-',
+      qty: item.quantity,
+      wholesale_price: p.wholesale_price || 0
+    };
+  });
+  const orderShipping = orderSubtotal < 30000 ? 1000 : 0;
+  const orderTax10 = Math.floor(orderSubtotal * 0.1);
+  const orderTotal = orderSubtotal + orderShipping + orderTax10;
+
   const orderData = {
-    company_name: formData.get('company_name'),
-    contact_name: formData.get('contact_name'),
+    company: formData.get('company_name'),
+    contact: formData.get('contact_name'),
     email: formData.get('email'),
     phone: formData.get('phone'),
-    zip: formData.get('zip'),
+    postal_code: formData.get('zip'),
     prefecture: formData.get('prefecture'),
     address: formData.get('address'),
     notes: formData.get('notes'),
-    items: cart,
+    items: orderItems,
+    subtotal: orderSubtotal,
+    shipping: orderShipping,
+    tax_10: orderTax10,
+    total: orderTotal,
     timestamp: new Date().toISOString()
   };
   
