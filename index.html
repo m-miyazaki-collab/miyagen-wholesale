@@ -17,82 +17,7 @@
       color: #333;
     }
     
-    .password-screen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10000;
-      flex-direction: column;
-    }
-    
-    .password-screen.hidden {
-      display: none;
-    }
-    
-    .password-box {
-      background: white;
-      padding: 40px;
-      border-radius: 10px;
-      text-align: center;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-      max-width: 400px;
-      width: 90%;
-    }
-    
-    .password-box img {
-      height: 60px;
-      margin-bottom: 20px;
-    }
-    
-    .password-box h1 {
-      font-size: 24px;
-      margin-bottom: 10px;
-      color: #1a1a2e;
-    }
-    
-    .password-box p {
-      color: #666;
-      margin-bottom: 30px;
-      font-size: 14px;
-    }
-    
-    .password-box input {
-      width: 100%;
-      padding: 12px;
-      border: 2px solid #ddd;
-      border-radius: 6px;
-      font-size: 16px;
-      margin-bottom: 20px;
-      transition: border-color 0.3s;
-    }
-    
-    .password-box input:focus {
-      outline: none;
-      border-color: #e94560;
-    }
-    
-    .password-box button {
-      width: 100%;
-      padding: 12px;
-      background: #e94560;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    
-    .password-box button:hover {
-      background: #d63850;
-    }
+    /* Admin footer link */
     
     header {
       background: white;
@@ -915,17 +840,7 @@
   </style>
 </head>
 <body>
-  <div id="password-screen" class="password-screen">
-    <div class="password-box">
-      <img src="https://baseec-img-mng.akamaized.net/images/user/logo/86f7734b31a441487dd2edd94e7a106b.png" alt="MIYAGEN">
-      <h1>MIYAGEN Trail Engineering</h1>
-      <p>取引先専用 卸注文ページ</p>
-      <input type="password" id="password-input" placeholder="パスワードを入力" autocomplete="off">
-      <button id="password-submit">ログイン</button>
-    </div>
-  </div>
-  
-  <div id="main-app" style="display: none;">
+  <div id="main-app">
     <header>
       <div class="header-left">
         <img src="https://baseec-img-mng.akamaized.net/images/user/logo/86f7734b31a441487dd2edd94e7a106b.png" alt="MIYAGEN" class="header-logo">
@@ -1135,6 +1050,21 @@
   
   <div id="add-notif">商品をカートに追加しました</div>
   
+  <!-- Admin Footer -->
+  <footer style="text-align:center; padding:40px 20px 20px; color:#aaa; font-size:12px; border-top:1px solid #eee; margin-top:40px;">
+    <p>&copy; MIYAGEN Trail Engineering</p>
+    <p style="margin-top:8px;"><a href="#" id="admin-login-link" style="color:#ccc; text-decoration:none;">管理者ログイン</a></p>
+  </footer>
+
+  <!-- Admin Login Modal -->
+  <div id="admin-login-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:20000;" onclick="closeAdminLogin()"></div>
+  <div id="admin-login-modal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:30px; border-radius:10px; z-index:20001; width:320px; text-align:center; box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+    <h3 style="margin-bottom:15px; color:#1a1a2e;">管理者ログイン</h3>
+    <input type="password" id="admin-password-input" placeholder="管理者パスワード" autocomplete="off" style="width:100%; padding:10px; border:2px solid #ddd; border-radius:6px; font-size:15px; margin-bottom:15px;">
+    <button id="admin-login-btn" style="width:100%; padding:10px; background:#1a1a2e; color:white; border:none; border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer;">ログイン</button>
+    <p id="admin-login-error" style="color:red; margin-top:10px; display:none;">パスワードが正しくありません</p>
+  </div>
+
   <button id="save-stock-btn" class="save-stock-btn">在庫を保存</button>
   
   <script>
@@ -1611,27 +1541,31 @@ function search() {
   renderProducts();
 }
 
-function handlePasswordSubmit() {
-  const password = document.getElementById('password-input').value;
-  const passwordScreen = document.getElementById('password-screen');
-  const mainApp = document.getElementById('main-app');
-  
-  if (password === 'miyagen2025') {
-    isAdmin = false;
-    passwordScreen.style.display = 'none';
-    mainApp.style.display = 'block';
-    loadFromStorage();
-    renderProducts();
-    updateCartBadge();
-  } else if (password === 'miyagenadmin') {
+function openAdminLogin() {
+  document.getElementById('admin-login-overlay').style.display = 'block';
+  document.getElementById('admin-login-modal').style.display = 'block';
+  document.getElementById('admin-password-input').value = '';
+  document.getElementById('admin-login-error').style.display = 'none';
+  document.getElementById('admin-password-input').focus();
+}
+
+function closeAdminLogin() {
+  document.getElementById('admin-login-overlay').style.display = 'none';
+  document.getElementById('admin-login-modal').style.display = 'none';
+}
+
+function handleAdminLogin() {
+  const password = document.getElementById('admin-password-input').value;
+  if (password === 'miyagen') {
     isAdmin = true;
-    passwordScreen.style.display = 'none';
-    mainApp.style.display = 'block';
-    loadFromStorage();
+    closeAdminLogin();
+    document.getElementById('admin-badge').style.display = 'inline-block';
+    document.getElementById('stock-mgmt-btn').style.display = 'inline-block';
+    document.getElementById('save-stock-btn').classList.add('show');
     renderProducts();
-    updateCartBadge();
+    alert('管理者モードでログインしました');
   } else {
-    alert('パスワードが正しくありません');
+    document.getElementById('admin-login-error').style.display = 'block';
   }
 }
 
@@ -1654,9 +1588,13 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('checkout-overlay').addEventListener('click', closeCheckout);
   document.getElementById('checkout-close').addEventListener('click', closeCheckout);
   document.getElementById('submit-order').addEventListener('click', submitOrder);
-  document.getElementById('password-submit').addEventListener('click', handlePasswordSubmit);
-  document.getElementById('password-input').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') handlePasswordSubmit();
+  document.getElementById('admin-login-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    openAdminLogin();
+  });
+  document.getElementById('admin-login-btn').addEventListener('click', handleAdminLogin);
+  document.getElementById('admin-password-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') handleAdminLogin();
   });
   document.getElementById('search-input').addEventListener('keyup', search);
   
