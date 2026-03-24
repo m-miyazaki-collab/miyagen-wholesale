@@ -255,6 +255,22 @@
       font-size: 12px;
       color: #999;
       margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .color-chip {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: inline-block;
+      vertical-align: middle;
+      border: 1px solid transparent;
+    }
+
+    .color-chip.striped {
+      background: repeating-linear-gradient(45deg, #ddd, #ddd 2px, #fff 2px, #fff 4px);
     }
     
     .product-badges {
@@ -335,7 +351,8 @@
     
     .product-actions {
       display: flex;
-      gap: 8px;
+      flex-direction: column;
+      gap: 6px;
       margin-top: auto;
     }
     
@@ -343,7 +360,8 @@
       display: flex;
       border: 1px solid #ddd;
       border-radius: 4px;
-      height: 36px;
+      height: 34px;
+      width: 100%;
     }
     
     .qty-btn {
@@ -380,11 +398,12 @@
     }
     
     .btn-add-cart {
-      flex: 1;
+      width: 100%;
       background: #e94560;
       color: white;
       border: none;
       border-radius: 4px;
+      padding: 8px;
       cursor: pointer;
       font-size: 13px;
       font-weight: bold;
@@ -819,6 +838,95 @@
       display: block;
     }
     
+    #stock-management-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .stock-modal-content {
+      background: white;
+      border-radius: 8px;
+      padding: 30px;
+      max-width: 900px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    .stock-modal-header {
+      font-size: 20px;
+      font-weight: bold;
+      color: #1a1a2e;
+      margin-bottom: 20px;
+    }
+
+    #stock-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+
+    #stock-table th {
+      background: #f5f5f5;
+      padding: 10px;
+      text-align: left;
+      font-weight: bold;
+      border-bottom: 2px solid #ddd;
+      font-size: 14px;
+    }
+
+    #stock-table td {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
+
+    #stock-table tr:hover {
+      background: #fafafa;
+    }
+
+    .stock-modal-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .stock-modal-buttons button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .stock-modal-buttons .save-btn {
+      background: #4caf50;
+      color: white;
+    }
+
+    .stock-modal-buttons .save-btn:hover {
+      background: #45a049;
+    }
+
+    .stock-modal-buttons .cancel-btn {
+      background: #ccc;
+      color: #333;
+    }
+
+    .stock-modal-buttons .cancel-btn:hover {
+      background: #bbb;
+    }
+
     @media (max-width: 768px) {
       #products-grid {
         grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -1065,6 +1173,28 @@
     <p id="admin-login-error" style="color:red; margin-top:10px; display:none;">パスワードが正しくありません</p>
   </div>
 
+  <div id="stock-management-modal">
+    <div class="stock-modal-content">
+      <div class="stock-modal-header">在庫管理</div>
+      <table id="stock-table">
+        <thead>
+          <tr>
+            <th>製品名</th>
+            <th>カラー</th>
+            <th>サイズ</th>
+            <th>有効在庫</th>
+          </tr>
+        </thead>
+        <tbody id="stock-table-body">
+        </tbody>
+      </table>
+      <div class="stock-modal-buttons">
+        <button class="cancel-btn" onclick="closeStockManagement()">キャンセル</button>
+        <button class="save-btn" onclick="saveTableStockChanges()">保存</button>
+      </div>
+    </div>
+  </div>
+
   <button id="save-stock-btn" class="save-stock-btn">在庫を保存</button>
   
   <script>
@@ -1146,6 +1276,46 @@ function saveAdminStock() {
 
 function formatPrice(price) {
   return '¥' + price.toLocaleString('ja-JP');
+}
+
+function getColorHex(colorName) {
+  const colorMap = {
+    'GREEN': '#4CAF50', 'ORANGE': '#FF9800', 'RED': '#F44336', 'YELLOW': '#FFEB3B',
+    'PURPLE': '#9C27B0', 'AQUA': '#00BCD4', 'BK': '#333333', 'BLACK': '#333333',
+    'WHITE': '#F5F5F5', 'GRAY': '#9E9E9E', 'HGY': '#BDBDBD', 'DGN': '#2E7D32',
+    'DKGN': '#1B5E20', 'DKNV': '#1A237E', 'NV': '#283593', 'INDIGO': '#3F51B5',
+    'KOKE': '#558B2F', 'MATCHA': '#8BC34A', 'MUSTARD': '#F9A825', 'GRANITE': '#757575',
+    'NAMIB': '#E65100', 'AZUKI': '#8B0000', 'MIYAGEN': '#1a1a2e', '黒': '#333333',
+    'ミリタリー': '#556B2F'
+  };
+  
+  if (colorName === '残端アソート' || colorName === '特殊' || colorName === '#1' || 
+      colorName === '#1set' || colorName === '-') {
+    return null;
+  }
+  
+  if (colorName.includes('BK x OG')) return 'bk_og_split';
+  if (colorName.includes('WTx BL') || colorName.includes('WT x BL')) return 'wt_bl_split';
+  
+  return colorMap[colorName] || null;
+}
+
+function renderColorChip(colorName) {
+  const hex = getColorHex(colorName);
+  if (!hex) return '';
+  
+  if (hex === 'bk_og_split') {
+    return '<span class="color-chip" style="background: conic-gradient(#333333 0deg 180deg, #FF9800 180deg 360deg);"></span>';
+  }
+  if (hex === 'wt_bl_split') {
+    return '<span class="color-chip" style="background: conic-gradient(#F5F5F5 0deg 180deg, #2196F3 180deg 360deg); border: 1px solid #999;"></span>';
+  }
+  if (colorName === '残端アソート' || colorName === '特殊') {
+    return '<span class="color-chip striped"></span>';
+  }
+  
+  const borderColor = hex === '#F5F5F5' ? '#999' : 'transparent';
+  return '<span class="color-chip" style="background-color: ' + hex + '; border-color: ' + borderColor + ';"></span>';
 }
 
 function getProductKey(product) {
@@ -1264,7 +1434,7 @@ function renderProducts() {
       '<div class="product-info">' +
       '<h3 class="product-name">' + product.name_en + '</h3>' +
       '<p class="product-name-jp">' + product.name_jp + '</p>' +
-      '<p class="product-meta">' + product.color + (product.size !== '-' ? ' / ' + product.size : '') + '</p>' +
+      '<p class="product-meta"><span>' + product.color + '</span>' + renderColorChip(product.color) + (product.size !== '-' ? '<span> / ' + product.size + '</span>' : '') + '</p>' +
       '<div class="product-badges">' + badges + '</div>' +
       '<div class="product-stock" style="color:' + stockColor + '">' + stockBadgeText + '</div>' +
       '<div class="product-prices">' +
@@ -1576,7 +1746,41 @@ function saveAdminStockClick() {
 }
 
 function showStockManagement() {
-  alert('在庫管理モード: 各商品の在庫フィールドを編集して「在庫を保存」をクリックしてください');
+  const modal = document.getElementById('stock-management-modal');
+  const tableBody = document.getElementById('stock-table-body');
+  tableBody.innerHTML = '';
+  
+  PRODUCTS.forEach(product => {
+    const row = document.createElement('tr');
+    row.innerHTML = '<td>' + product.name_en + '</td>' +
+      '<td>' + product.color + '</td>' +
+      '<td>' + product.size + '</td>' +
+      '<td><input type="number" class="stock-input" data-product-key="' + getProductKey(product) + '" value="' + product.stock + '" min="0" style="width: 80px; padding: 4px;"></td>';
+    tableBody.appendChild(row);
+  });
+  
+  modal.style.display = 'flex';
+}
+
+function closeStockManagement() {
+  document.getElementById('stock-management-modal').style.display = 'none';
+}
+
+function saveTableStockChanges() {
+  document.querySelectorAll('.stock-input').forEach(input => {
+    const key = input.getAttribute('data-product-key');
+    const value = parseInt(input.value) || 0;
+    const product = PRODUCTS.find(p => getProductKey(p) === key);
+    if (product) {
+      product.stock = value;
+      product.status = value > 0 ? 'available' : 'out_of_stock';
+      product.orderable = value > 0 && product.status !== 'discontinued' && product.status !== 'wholesale_ng';
+    }
+  });
+  saveAdminStock();
+  closeStockManagement();
+  renderProducts();
+  alert('在庫を保存しました');
 }
 
 // Event listeners
@@ -1615,7 +1819,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('stock-mgmt-btn').addEventListener('click', showStockManagement);
   }
   if (document.getElementById('save-stock-btn')) {
-    document.getElementById('save-stock-btn').addEventListener('click', saveAdminStockClick);
+    document.getElementById('save-stock-btn').addEventListener('click', showStockManagement);
   }
   
   loadFromStorage();
