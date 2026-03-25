@@ -47,6 +47,7 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
 .color-bar-label{flex:2;height:28px;display:flex;align-items:center;padding:0 8px;background:#f5f5f5;font-size:14px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .product-badges{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:2px}
 .badge-new{background:#10b981;color:white;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:bold}
+.badge-new-color{background:#3b82f6;color:white;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:bold}
 .badge-stock{background:#fbbf24;color:#92400e;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:bold}
 .badge-discontinued{background:#6b7280;color:white;padding:1px 5px;border-radius:3px;font-size:9px}
 .stock-info{font-size:10px;color:#888;margin-bottom:2px}
@@ -141,6 +142,15 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
 .order-card .expand-btn{background:none;border:none;color:#e63946;cursor:pointer;font-size:11px;padding:0}
 .header-history-btn{background:none;border:1px solid #ddd;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;color:#555}
 .header-history-btn:hover{border-color:#e63946;color:#e63946}
+.updates-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:300;display:none;align-items:start;justify-content:center;overflow-y:auto;padding:20px 10px}
+.updates-overlay.open{display:flex}
+.updates-modal{background:white;border-radius:12px;padding:30px;max-width:600px;width:100%}
+.updates-modal h2{font-size:20px;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e63946}
+.update-entry{margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #eee}
+.update-entry:last-child{border-bottom:none}
+.update-date{font-size:12px;color:#888;margin-bottom:4px}
+.update-content{font-size:13px;color:#333;line-height:1.6}
+.fav-notice{font-size:10px;color:#aaa;margin-top:4px}
 
 
 
@@ -197,6 +207,7 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
   <div class="main-content">
     <div class="filters">
       <div class="filter-bar" id="filter-bar"></div>
+      <div class="fav-notice">※ お気に入りはブラウザに保存されます。アップデート等により予告なく消去される場合があります。</div>
       <div class="search-sort-row">
         <input type="text" id="search-input" class="search-box" placeholder="商品名、色、品番で検索...">
         <select id="sort-select" class="sort-select" onchange="renderProducts()">
@@ -213,7 +224,7 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
     <div id="products-grid"></div>
     <footer class="site-footer">
       <p>&copy; MIYAGEN Trail Engineering</p>
-      
+      <p><a href="#" onclick="event.preventDefault();openUpdates()">アップデート履歴</a></p>
     </footer>
   </div>
   <div class="cart-sidebar" id="cart-sidebar">
@@ -244,6 +255,16 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
     <table class="review-table" id="review-table"><thead><tr><th>商品</th><th>数量</th><th>単価</th><th>小計</th></tr></thead><tbody></tbody></table>
     <div class="order-total" id="order-total"></div>
     <button class="submit-btn" id="submit-btn" onclick="submitOrder()">注文を確定する</button>
+  </div>
+</div>
+
+<!-- Update History -->
+<div class="updates-overlay" id="updates-overlay" onclick="if(event.target===this)closeUpdates()">
+  <div class="updates-modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e63946"><h2 style="margin:0;border:none;padding:0">アップデート履歴</h2><button onclick="closeUpdates()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#999">&times;</button></div>
+    <div class="update-entry"><div class="update-date">2026-03-25</div><div class="update-content">注文確定前の在庫リアルタイムチェック機能を追加<br>注文完了後のサンクスページを追加<br>注文送信中のローディング表示を追加<br>お気に入り機能を追加<br>注文履歴ページを追加<br>新カラーバッジ表示を追加<br>在庫残少時の管理者アラートメール機能を追加</div></div>
+    <div class="update-entry"><div class="update-date">2026-03-24</div><div class="update-content">Shopify商品画像の自動連携を追加<br>デフォルト並び順を品番順（降順）に変更<br>在庫自動減算機能を追加</div></div>
+    <div class="update-entry"><div class="update-date">2026-03-20</div><div class="update-content">BtoB卸注文サイト公開<br>Cloudflare Access認証による取引先自動判別<br>MFクラウド請求書CSV自動生成<br>注文確認メール自動送信</div></div>
   </div>
 </div>
 
@@ -314,7 +335,7 @@ function renderProducts(){
         <h3 title="${escHtml(p.name_en||p.name_jp)}">${escHtml(p.name_en||p.name_jp)}</h3>
         <div class="name-jp" title="${escHtml(p.name_jp)}">${escHtml(p.name_jp)}</div>
         <div class="color-bar-wrap"><div class="color-bar" style="background:${isRainbow?'linear-gradient(135deg,#ef4444,#f97316,#eab308,#22c55e,#3b82f6,#a855f7)':colorHex}${p.color==='WHITE'?';border:1px solid #ddd':''}"></div><div class="color-bar-label">${escHtml(p.color)}${p.size&&p.size!=='-'?' / '+escHtml(p.size):''}</div></div>
-        <div class="product-badges">${p.is_new?'<span class="badge-new">NEW</span>':''}${p.stock<=0?'<span class="badge-stock">在庫切れ</span>':''}${p.is_discontinued?'<span class="badge-discontinued">終売</span>':''}</div>
+        <div class="product-badges">${p.is_new?'<span class="badge-new">NEW</span>':''}${p.is_new_color?'<span class="badge-new-color">NEW COLOR</span>':''}${p.stock<=0?'<span class="badge-stock">在庫切れ</span>':''}${p.is_discontinued?'<span class="badge-discontinued">終売</span>':''}</div>
         <div class="stock-info">${canOrder?(p.stock<=5?'残り'+p.stock+'個':''):(p.stock<=0?'在庫なし':'注文不可')}</div>
         <div class="price-line"><span class="wholesale-price">¥${p.wholesale_price.toLocaleString()}</span><span class="retail-price">小売 ¥${p.retail_price.toLocaleString()}</span></div>
         <div class="rate-info">掛率: ${Math.round(p.discount_rate*100)}% | 税率: ${Math.round(p.tax_rate*100)}%</div>
@@ -356,6 +377,8 @@ function toggleFavorite(key){const favs=getFavorites();const idx=favs.indexOf(ke
 let orderHistoryCache=null;
 function openOrderHistory(){document.getElementById('order-history-overlay').classList.add('open');if(orderHistoryCache){renderOrderHistory(orderHistoryCache)}else{loadOrderHistory()}}
 function closeOrderHistory(){document.getElementById('order-history-overlay').classList.remove('open')}
+function openUpdates(){document.getElementById('updates-overlay').classList.add('open')}
+function closeUpdates(){document.getElementById('updates-overlay').classList.remove('open')}
 function loadOrderHistory(){if(!cfEmail){document.getElementById('order-history-list').innerHTML='<div style="text-align:center;color:#aaa;padding:30px">ログイン情報が取得できません</div>';return}document.getElementById('order-history-list').innerHTML='<div style="text-align:center;color:#aaa;padding:30px">読み込み中...</div>';const s=document.createElement('script');window.orderHistoryCb=function(data){try{s.remove()}catch(e){}delete window.orderHistoryCb;if(data&&data.orders){orderHistoryCache=data.orders;renderOrderHistory(data.orders)}};s.src=GAS_URL+'?action=get_orders&email='+encodeURIComponent(cfEmail)+'&callback=orderHistoryCb';s.onerror=function(){try{s.remove()}catch(e){}document.getElementById('order-history-list').innerHTML='<div style="text-align:center;color:#e63946;padding:30px">読み込みに失敗しました</div>'};document.body.appendChild(s)}
 function renderOrderHistory(orders){const list=document.getElementById('order-history-list');if(!orders||orders.length===0){list.innerHTML='<div style="text-align:center;color:#aaa;padding:30px">注文履歴がありません</div>';return}list.innerHTML=orders.map(o=>{const items=escHtml(o.items||'');return`<div class="order-card"><div class="order-header"><span class="order-id">${escHtml(o.orderId)}</span><span class="order-date">${escHtml(o.date)}</span></div><div class="order-items">${items.replace(/\n/g,'<br>')}</div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:#888">送料: ¥${(o.shipping||0).toLocaleString()} / 税: ¥${((o.tax10||0)+(o.tax8||0)).toLocaleString()}</span><span class="order-total">合計 ¥${(o.total||0).toLocaleString()}</span></div></div>`}).join('')}
 
