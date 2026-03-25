@@ -209,6 +209,7 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
       <div class="form-row"><div class="form-group"><label>メール <span style="color:#e63946;font-size:10px">必須</span></label><input type="email" name="email" required></div><div class="form-group"><label>電話番号 <span style="color:#e63946;font-size:10px">必須</span></label><input type="tel" name="phone" required></div></div>
       
       <h2 style="font-size:15px;margin:15px 0 10px;padding-bottom:6px;border-bottom:2px solid #e63946">配送先</h2>
+      <div class="form-group" id="ship-select-group" style="display:none"><label>配送先を選択</label><select id="ship-select" onchange="applyShipSelection(this.value)"><option value="">選択してください</option></select></div>
       <div class="form-group"><label>配送先名 <span style="color:#e63946;font-size:10px">必須</span></label><input type="text" name="ship_name" required placeholder="店舗名・屋号"></div>
       <div class="form-row"><div class="form-group"><label>郵便番号</label><input type="text" name="ship_postal" placeholder="000-0000"></div><div class="form-group"><label>都道府県</label><select name="ship_pref"><option value="">選択</option><option>北海道</option><option>青森県</option><option>岩手県</option><option>宮城県</option><option>秋田県</option><option>山形県</option><option>福島県</option><option>茨城県</option><option>栃木県</option><option>群馬県</option><option>埼玉県</option><option>千葉県</option><option>東京都</option><option>神奈川県</option><option>新潟県</option><option>富山県</option><option>石川県</option><option>福井県</option><option>山梨県</option><option>長野県</option><option>岐阜県</option><option>静岡県</option><option>愛知県</option><option>三重県</option><option>滋賀県</option><option>京都府</option><option>大阪府</option><option>兵庫県</option><option>奈良県</option><option>和歌山県</option><option>鳥取県</option><option>島根県</option><option>岡山県</option><option>広島県</option><option>山口県</option><option>徳島県</option><option>香川県</option><option>愛媛県</option><option>高知県</option><option>福岡県</option><option>佐賀県</option><option>長崎県</option><option>熊本県</option><option>大分県</option><option>宮崎県</option><option>鹿児島県</option><option>沖縄県</option></select></div></div>
       <div class="form-group"><label>住所</label><input type="text" name="ship_address" placeholder="市区町村・番地・建物"></div>
@@ -312,8 +313,74 @@ document.getElementById('search-input').addEventListener('input',function(){sear
 document.getElementById('checkout-overlay').addEventListener('click',function(e){if(e.target===this)closeCheckout()});
 document.getElementById('checkout-form').addEventListener('input',saveFormData);
 
-// Init
+// Cloudflare Access email detection & shop info auto-fill
+let shopEntries=[];
+function getCFEmail(){
+  try{
+    const cookie=document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('CF_Authorization='));
+    if(!cookie)return null;
+    const token=cookie.split('=')[1];
+    const payload=JSON.parse(atob(token.split('.')[1]));
+    return payload.email||null;
+  }catch(e){return null}
+}
+function lookupShopByEmail(email){
+  if(!email||!GAS_URL)return;
+  const s=document.createElement('script');
+  window.shopLookupCallback=function(data){
+    try{s.remove()}catch(e){}
+    if(data&&data.shops&&data.shops.length>0){
+      shopEntries=data.shops;
+      autoFillCompanyInfo(shopEntries);
+    }
+  };
+  s.src=GAS_URL+'?action=lookupShop&email='+encodeURIComponent(email)+'&callback=shopLookupCallback';
+  document.body.appendChild(s);
+}
+function autoFillCompanyInfo(shops){
+  const form=document.getElementById('checkout-form');
+  const first=shops[0];
+  form.querySelector('[name="company_name"]').value=first.company||'';
+  form.querySelector('[name="contact_name"]').value=first.contact||'';
+  form.querySelector('[name="email"]').value=first.email||'';
+  form.querySelector('[name="phone"]').value=first.phone||'';
+  // shipping
+  if(shops.length>1){
+    const sel=document.getElementById('ship-select');
+    sel.innerHTML='<option value="">配送先を選択してください</option>';
+    shops.forEach((sh,i)=>{
+      const opt=document.createElement('option');
+      opt.value=i;
+      opt.textContent=sh.ship_label||sh.company;
+      sel.appendChild(opt);
+    });
+    document.getElementById('ship-select-group').style.display='';
+  }
+  applyShipData(first);
+  saveFormData();
+}
+function applyShipSelection(idx){
+  if(idx===''||!shopEntries[idx])return;
+  applyShipData(shopEntries[idx]);
+  saveFormData();
+}
+function applyShipData(shop){
+  const form=document.getElementById('checkout-form');
+  form.querySelector('[name="ship_name"]').value=shop.ship_name||shop.company||'';
+  form.querySelector('[name="ship_postal"]').value=shop.ship_postal||'';
+  const prefSelect=form.querySelector('[name="ship_pref"]');
+  if(shop.ship_pref){
+    for(let i=0;i<prefSelect.options.length;i++){
+      if(prefSelect.options[i].text===shop.ship_pref){prefSelect.selectedIndex=i;break}
+    }
+  }
+  form.querySelector('[name="ship_address"]').value=shop.ship_address||'';
+  form.querySelector('[name="ship_phone"]').value=shop.ship_phone||'';
+}
 
+// Init
+const cfEmail=getCFEmail();
+if(cfEmail)lookupShopByEmail(cfEmail);
 
 initFilters();
 renderProducts();
