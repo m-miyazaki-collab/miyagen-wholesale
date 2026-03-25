@@ -271,7 +271,7 @@ function sortProducts(arr){const m=document.getElementById('sort-select')?.value
 function renderProducts(){
   const grid=document.getElementById('products-grid');const filtered=filterProducts();grid.innerHTML='';
   filtered.forEach(p=>{
-    const key=getProductKey(p);const canOrder=p.wholesale_ok==='OK'&&p.stock>0;const colorHex=COLOR_MAP[p.color]||'#ccc';
+    const key=getProductKey(p);const canOrder=p.wholesale_ok==='OK'&&p.stock>0;const isRainbow=(p.color==='特殊');const colorHex=isRainbow?'':COLOR_MAP[p.color]||'#ccc';
     const card=document.createElement('div');card.className='product-card'+(canOrder?'':' out-of-stock');
     const safeName=escHtml(p.name_en||p.name_jp||'');
     card.innerHTML=`
@@ -280,7 +280,7 @@ function renderProducts(){
         <div class="sku-line">#${escHtml(p.sku)}</div>
         <h3 title="${escHtml(p.name_en||p.name_jp)}">${escHtml(p.name_en||p.name_jp)}</h3>
         <div class="name-jp" title="${escHtml(p.name_jp)}">${escHtml(p.name_jp)}</div>
-        <div class="color-bar-wrap"><div class="color-bar" style="background:${colorHex}${p.color==='WHITE'?';border:1px solid #ddd':''}"></div><div class="color-bar-label">${escHtml(p.color)}${p.size&&p.size!=='-'?' / '+escHtml(p.size):''}</div></div>
+        <div class="color-bar-wrap"><div class="color-bar" style="background:${isRainbow?'linear-gradient(135deg,#ef4444,#f97316,#eab308,#22c55e,#3b82f6,#a855f7)':colorHex}${p.color==='WHITE'?';border:1px solid #ddd':''}"></div><div class="color-bar-label">${escHtml(p.color)}${p.size&&p.size!=='-'?' / '+escHtml(p.size):''}</div></div>
         <div class="product-badges">${p.is_new?'<span class="badge-new">NEW</span>':''}${p.stock<=0?'<span class="badge-stock">在庫切れ</span>':''}${p.is_discontinued?'<span class="badge-discontinued">終売</span>':''}</div>
         <div class="stock-info">${canOrder?p.stock+'個':(p.stock<=0?'在庫なし':'注文不可')}</div>
         <div class="price-line"><span class="wholesale-price">¥${p.wholesale_price.toLocaleString()}</span><span class="retail-price">小売 ¥${p.retail_price.toLocaleString()}</span></div>
