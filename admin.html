@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIYAGEN Admin</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;color:#333}
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh}
+.login-box{background:white;padding:30px;border-radius:12px;max-width:320px;width:100%;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.1)}
+.login-box h2{margin-bottom:15px;color:#1a1a2e}
+.login-box input{width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;margin:8px 0;font-size:14px}
+.login-box button{padding:10px 24px;background:#1a1a2e;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px}
+.login-err{color:#e63946;font-size:12px;display:none;margin-top:8px}
+.admin-wrap{display:none;max-width:1000px;margin:0 auto;padding:20px}
+.admin-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
+.admin-header h1{font-size:18px;color:#1a1a2e}
+.admin-header a{color:#666;font-size:12px;text-decoration:none}
+.tabs{display:flex;gap:4px;margin-bottom:15px;border-bottom:2px solid #e5e7eb}
+.tab{padding:8px 16px;border:none;background:none;cursor:pointer;font-size:13px;color:#666;border-bottom:2px solid transparent;margin-bottom:-2px}
+.tab.active{color:#e63946;border-bottom-color:#e63946;font-weight:bold}
+.section{display:none}.section.active{display:block}
+.stock-wrap{overflow-y:auto;max-height:65vh}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{background:#f5f5f5;padding:5px 6px;text-align:left;position:sticky;top:0;z-index:1}
+td{padding:3px 6px;border-bottom:1px solid #eee}
+td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius:4px;text-align:center}
+.btn{padding:8px 16px;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold}
+.btn-save{background:#10b981;color:white}.btn-save:hover{background:#059669}
+.btn-primary{background:#e63946;color:white}
+.csv-area{border:2px dashed #ddd;border-radius:8px;padding:30px;text-align:center;margin-bottom:15px;cursor:pointer}
+.csv-area:hover{border-color:#e63946}
+.csv-area input{display:none}
+.csv-status{margin:10px 0;padding:10px;border-radius:6px;font-size:12px;display:none}
+.csv-status.ok{display:block;background:#d1fae5;color:#065f46}
+.csv-status.err{display:block;background:#fee2e2;color:#991b1b}
+.actions{display:flex;gap:8px;margin-top:10px}
+</style></head><body>
+<div class="login-wrap" id="login-wrap"><div class="login-box"><h2>管理画面</h2><input type="password" id="pw" placeholder="パスワード" onkeydown="if(event.key==='Enter')doLogin()"><p class="login-err" id="err">パスワードが違います</p><button onclick="doLogin()">ログイン</button></div></div>
+<div class="admin-wrap" id="admin-wrap">
+<div class="admin-header"><h1>MIYAGEN 管理画面</h1><a href="index.html">&larr; 注文ページに戻る</a></div>
+<div class="tabs"><button class="tab active" onclick="switchTab(this,'t-stock')">在庫管理</button><button class="tab" onclick="switchTab(this,'t-csv')">CSV商品更新</button></div>
+<div id="t-stock" class="section active"><div class="stock-wrap"><table><thead><tr><th>品番</th><th>商品名</th><th>カラー</th><th>サイズ</th><th>在庫</th><th style="text-align:center">販売NG</th><th style="text-align:center">非表示</th></tr></thead><tbody id="stock-tbody"></tbody></table></div><div class="actions"><button class="btn btn-save" onclick="saveStock()">在庫を保存</button></div></div>
+<div id="t-csv" class="section"><p style="font-size:12px;color:#666;margin-bottom:10px">バリエーションCSVをアップロードすると商品データが更新されます。在庫数は保持されます。</p><div class="csv-area" onclick="document.getElementById('csv-file').click()"><input type="file" id="csv-file" accept=".csv" onchange="handleCSV(this)"><p style="font-size:14px;color:#666">CSVファイルをクリックして選択</p></div><div class="csv-status" id="csv-status"></div><div class="actions"><button class="btn btn-primary" id="csv-apply" onclick="applyCSV()" style="display:none">商品データを更新</button></div></div>
+</div>
+<script>
+var ADMIN_HASH='4412f853b2eb78c89a837eeaf0e346b4739e84051997ab8d2168eab0011c6093';
+var PRODUCTS=JSON.parse(localStorage.getItem('miyagen_products')||'[]');
+var pendingCSV=null;
+if(PRODUCTS.length===0){document.getElementById('login-wrap').innerHTML='<div class="login-box"><h2>初回セットアップ</h2><p style="margin:10px 0;font-size:13px;color:#666">先に<a href="index.html">注文ページ</a>を一度開いてください</p></div>'}
+function getProductKey(p){return p.sku+'_'+(p.color||'')+'_'+(p.size||'')}
+async function doLogin(){var pw=document.getElementById('pw').value;try{var e=new TextEncoder();var d=e.encode(pw+'_miyagen_salt_2026');var b=await crypto.subtle.digest('SHA-256',d);var h=Array.from(new Uint8Array(b)).map(function(b){return b.toString(16).padStart(2,'0')}).join('')}catch(err){document.getElementById('err').style.display='block';return}if(h===ADMIN_HASH){document.getElementById('login-wrap').style.display='none';document.getElementById('admin-wrap').style.display='block';loadStock();renderStock()}else{document.getElementById('err').style.display='block'}}
+function switchTab(btn,id){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});btn.classList.add('active');document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active')});document.getElementById(id).classList.add('active')}
+function loadStock(){var s=JSON.parse(localStorage.getItem('miyagen_stock')||'[]');s.forEach(function(s){var p=PRODUCTS.find(function(p){return getProductKey(p)===s.key});if(p){p.stock=s.stock;if(s.wholesale_ok!==undefined)p.wholesale_ok=s.wholesale_ok;if(s.hidden!==undefined)p.hidden=s.hidden}})}
+function renderStock(){var tb=document.getElementById('stock-tbody');tb.innerHTML='';PRODUCTS.forEach(function(p){var key=getProductKey(p);var tr=document.createElement('tr');if(p.hidden)tr.style.opacity='0.4';tr.innerHTML='<td style="font-family:monospace;font-size:9px">'+p.sku+'</td><td style="font-size:11px">'+(p.name_en||p.name_jp)+'</td><td style="font-size:11px">'+p.color+'</td><td style="font-size:11px">'+p.size+'</td><td><input type="number" value="'+p.stock+'" data-sk="'+key+'"></td><td style="text-align:center"><input type="checkbox" data-nk="'+key+'"'+(p.wholesale_ok!=='OK'?' checked':'')+'></td><td style="text-align:center"><input type="checkbox" data-hk="'+key+'"'+(p.hidden?' checked':'')+'></td>';tb.appendChild(tr)})}
+function saveStock(){document.querySelectorAll('[data-sk]').forEach(function(i){var p=PRODUCTS.find(function(p){return getProductKey(p)===i.dataset.sk});if(p)p.stock=parseInt(i.value)||0});document.querySelectorAll('[data-nk]').forEach(function(c){var p=PRODUCTS.find(function(p){return getProductKey(p)===c.dataset.nk});if(p)p.wholesale_ok=c.checked?'NG':'OK'});document.querySelectorAll('[data-hk]').forEach(function(c){var p=PRODUCTS.find(function(p){return getProductKey(p)===c.dataset.hk});if(p)p.hidden=c.checked});localStorage.setItem('miyagen_stock',JSON.stringify(PRODUCTS.map(function(p){return{key:getProductKey(p),stock:p.stock,wholesale_ok:p.wholesale_ok,hidden:!!p.hidden}})));localStorage.setItem('miyagen_products',JSON.stringify(PRODUCTS));renderStock();alert('保存しました')}
+function handleCSV(input){var file=input.files[0];if(!file)return;var reader=new FileReader();reader.onload=function(e){try{var text=e.target.result;var lines=text.split('\n');var headers=parseCSVLine(lines[0]);var rows=[];for(var i=1;i<lines.length;i++){if(lines[i].trim())rows.push(parseCSVLine(lines[i]))}pendingCSV={headers:headers,rows:rows};var st=document.getElementById('csv-status');st.className='csv-status ok';st.textContent=rows.length+'件読み込みました';document.getElementById('csv-apply').style.display='inline-block'}catch(err){var st=document.getElementById('csv-status');st.className='csv-status err';st.textContent='エラー: '+err.message}};reader.readAsText(file,'UTF-8')}
+function parseCSVLine(line){var r=[];var c='';var q=false;for(var i=0;i<line.length;i++){var ch=line[i];if(ch==='"'){if(q&&line[i+1]==='"'){c+='"';i++}else{q=!q}}else if(ch===','&&!q){r.push(c.trim());c=''}else{c+=ch}}r.push(c.trim());return r}
+function applyCSV(){if(!pendingCSV)return;var h=pendingCSV.headers;var rows=pendingCSV.rows;function hi(k){return h.indexOf(k)}var savedStock={};var savedImages={};PRODUCTS.forEach(function(p){var k=getProductKey(p);savedStock[k]=p.stock;if(p.image)savedImages[k]=p.image});var newP=[];rows.forEach(function(cols){var sku=parseInt(cols[hi('品番')])||0;if(!sku)return;function pp(s){return parseInt(String(s||'').replace(/[¥,]/g,''))||0}function pr(s){return parseFloat(String(s||'').replace(/%/g,''))/100||0}var p={sku:sku,name_jp:cols[hi('製品名（product name）')]||'',name_en:cols[hi('product name')]||'',color:cols[hi('カラー')]||'',size:cols[hi('サイズ')]||'-',category_main:cols[hi('カテゴリー大分類')]||'',category_mid:cols[hi('カテゴリー中分類')]||'',category_sub:cols[hi('カテゴリー小分類')]||'',description:cols[hi('商品説明')]||'',base_url:cols[hi('URL')]||'',wholesale_ok:(cols[hi('卸し販売')]||'').trim()==='OK'?'OK':'NG',retail_price:pp(cols[hi('税抜上代')]),tax_inclusive_price:pp(cols[hi('税込価格')]),wholesale_price:pp(cols[hi('卸し単価（税抜）')]),discount_rate:pr(cols[hi('掛け率')]),tax_rate:pr(cols[hi('消費税')]),is_new:!!(cols[hi('新商品')]||'').trim(),is_discontinued:false,stock:0,image:'',hidden:false};var key=getProductKey(p);if(savedStock[key]!==undefined)p.stock=savedStock[key];if(savedImages[key])p.image=savedImages[key];newP.push(p)});PRODUCTS.length=0;newP.forEach(function(p){PRODUCTS.push(p)});localStorage.setItem('miyagen_products',JSON.stringify(PRODUCTS));renderStock();var st=document.getElementById('csv-status');st.className='csv-status ok';st.textContent=newP.length+'件更新しました';document.getElementById('csv-apply').style.display='none';pendingCSV=null}
+</script></body></html>
