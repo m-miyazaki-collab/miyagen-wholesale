@@ -52,7 +52,7 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
 .badge-stock{background:#fbbf24;color:#92400e;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:bold}
 .badge-discontinued{background:#6b7280;color:white;padding:1px 5px;border-radius:3px;font-size:9px}
 .stock-info{font-size:10px;color:#888;margin-bottom:2px}
-.price-line{display:flex;align-items:baseline;gap:5px;margin-bottom:1px}
+.price-line{display:flex;align-items:center;gap:5px;margin-bottom:3px}
 .wholesale-price{font-size:16px;font-weight:bold;color:#e63946}
 .retail-price{font-size:10px;color:#666;background:#f0f0f0;padding:1px 6px;border-radius:3px}
 .rate-info{font-size:10px;color:#666;margin-bottom:4px;display:flex;gap:8px}
@@ -339,7 +339,7 @@ function renderProducts(){
         <div class="color-bar-wrap"><div class="color-bar" style="background:${isRainbow?'linear-gradient(135deg,#ef4444,#f97316,#eab308,#22c55e,#3b82f6,#a855f7)':colorHex}${p.color==='WHITE'?';border:1px solid #ddd':''}"></div><div class="color-bar-label">${escHtml(p.color)}${p.size&&p.size!=='-'?' / '+escHtml(p.size):''}</div></div>
         <div class="product-badges">${p.is_new?'<span class="badge-new">NEW</span>':''}${p.is_new_color?'<span class="badge-new-color">NEW COLOR</span>':''}${p.stock<=0?'<span class="badge-stock">在庫切れ</span>':''}${p.is_discontinued?'<span class="badge-discontinued">終売</span>':''}</div>
         <div class="stock-info">${canOrder?(p.stock<=5?'残り'+p.stock+'個':''):(p.stock<=0?'在庫なし':'注文不可')}</div>
-        <div class="price-line"><span class="wholesale-price">¥${p.wholesale_price.toLocaleString()}</span><span class="retail-price">(定価 ¥${p.retail_price.toLocaleString()})</span></div>
+        <div class="price-line"><span class="wholesale-price">¥${p.wholesale_price.toLocaleString()}</span><span class="retail-price">定価 ¥${p.retail_price.toLocaleString()} 税抜</span></div>
         <div class="rate-info"><span class="rate-tag">掛率 ${Math.round(p.discount_rate*100)}%</span><span class="rate-tag">税率 ${Math.round(p.tax_rate*100)}%</span></div>
         ${canOrder?`<div class="qty-row"><button class="qty-btn" onclick="changeQty(this,-1)">−</button><input type="number" class="qty-input" value="1" min="1" max="${p.stock}" data-key="${key}"><button class="qty-btn" onclick="changeQty(this,1)">+</button></div><button class="add-btn" onclick="addToCart('${key}',this)">カートに追加</button>`:'<div class="no-order">注文不可</div>'}
       </div>`;
