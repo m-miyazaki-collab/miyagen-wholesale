@@ -185,7 +185,6 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
 <header>
   <div class="header-left"><div><h1 class="header-title">MIYAGEN Trail Engineering</h1><p class="header-subtitle">Wholesale Order System / 取引先専用 卸注文ページ</p></div></div>
   <div class="header-right">
-    <button class="header-history-btn" id="updates-btn" onclick="openUpdates()" style="background:none;border:1px solid #ccc;color:#666;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:11px">更新履歴</button>
     <button class="header-history-btn" id="history-btn" style="display:none" onclick="openOrderHistory()">注文履歴</button>
     <button class="cart-toggle-btn" id="cart-toggle-btn" onclick="toggleMobileCart()">カート<span class="badge" id="cart-badge-mobile">0</span></button>
   </div>
@@ -251,8 +250,6 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
 <div class="updates-overlay" id="updates-overlay" onclick="if(event.target===this)closeUpdates()">
   <div class="updates-modal">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e63946"><h2 style="margin:0;border:none;padding:0">アップデート履歴</h2><button onclick="closeUpdates()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#999">&times;</button></div>
-    <div class="update-entry"><div class="update-date">2026-03-25</div><div class="update-content">注文確定前の在庫リアルタイムチェック機能を追加<br>注文完了後のサンクスページを追加<br>注文送信中のローディング表示を追加<br>お気に入り機能を追加<br>注文履歴ページを追加<br>新カラーバッジ表示を追加<br>在庫残少時の管理者アラートメール機能を追加</div></div>
-    <div class="update-entry"><div class="update-date">2026-03-24</div><div class="update-content">Shopify商品画像の自動連携を追加<br>デフォルト並び順を品番順（降順）に変更<br>在庫自動減算機能を追加</div></div>
     <div class="update-entry"><div class="update-date">2026-03-20</div><div class="update-content">BtoB卸注文サイト公開<br>Cloudflare Access認証による取引先自動判別<br>MFクラウド請求書CSV自動生成<br>注文確認メール自動送信</div></div>
   </div>
 </div>
