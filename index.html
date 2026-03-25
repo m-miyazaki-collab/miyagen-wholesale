@@ -230,7 +230,7 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
     </footer>
   </div>
   <div class="cart-sidebar" id="cart-sidebar">
-    <div class="cart-sidebar-header"><h2>カート</h2><div style="display:flex;align-items:center;gap:8px"><span class="cart-count" id="cart-count">0点</span><button id="cart-clear-btn" onclick="if(cart.length&&confirm('カートを空にしますか？')){cart=[];saveCart();renderCartSidebar();updateCartBadge()}" style="background:#e63946;color:white;border:none;border-radius:4px;padding:4px 10px;font-size:10px;font-weight:bold;cursor:pointer;display:none">全削除</button></div></div>
+    <div class="cart-sidebar-header"><h2>カート</h2><div style="display:flex;align-items:center;gap:8px"><span class="cart-count" id="cart-count">0点</span><button id="cart-clear-btn" onclick="if(cart.length&&confirm('カートを空にしますか？')){cart=[];saveCart();renderCartSidebar();updateCartBadge()}" style="background:none;border:1px solid #ccc;border-radius:4px;padding:3px 8px;font-size:9px;color:#999;cursor:pointer;display:none">全削除</button></div></div>
     <div class="cart-items-list" id="cart-items"></div>
     <div class="cart-footer" id="cart-footer"></div>
   </div>
