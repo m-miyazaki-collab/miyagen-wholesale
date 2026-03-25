@@ -207,12 +207,12 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
   <div class="checkout-modal">
     <h2>会社情報</h2>
     <form id="checkout-form" onsubmit="return false">
-      <div class="form-group"><label>会社名 *</label><input type="text" name="company_name" required></div>
-      <div class="form-group"><label>担当者名 *</label><input type="text" name="contact_name" required></div>
-      <div class="form-row"><div class="form-group"><label>メール *</label><input type="email" name="email" required></div><div class="form-group"><label>電話番号 *</label><input type="tel" name="phone" required></div></div>
+      <div class="form-group"><label>会社名 <span style="color:#e63946;font-size:10px">必須</span></label><input type="text" name="company_name" required></div>
+      <div class="form-group"><label>担当者名 <span style="color:#e63946;font-size:10px">必須</span></label><input type="text" name="contact_name" required></div>
+      <div class="form-row"><div class="form-group"><label>メール <span style="color:#e63946;font-size:10px">必須</span></label><input type="email" name="email" required></div><div class="form-group"><label>電話番号 <span style="color:#e63946;font-size:10px">必須</span></label><input type="tel" name="phone" required></div></div>
       
       <h2 style="font-size:15px;margin:15px 0 10px;padding-bottom:6px;border-bottom:2px solid #e63946">配送先</h2>
-      <div class="form-group"><label>配送先名 *</label><input type="text" name="ship_name" required placeholder="店舗名・屋号"></div>
+      <div class="form-group"><label>配送先名 <span style="color:#e63946;font-size:10px">必須</span></label><input type="text" name="ship_name" required placeholder="店舗名・屋号"></div>
       <div class="form-row"><div class="form-group"><label>郵便番号</label><input type="text" name="ship_postal" placeholder="000-0000"></div><div class="form-group"><label>都道府県</label><select name="ship_pref"><option value="">選択</option><option>北海道</option><option>青森県</option><option>岩手県</option><option>宮城県</option><option>秋田県</option><option>山形県</option><option>福島県</option><option>茨城県</option><option>栃木県</option><option>群馬県</option><option>埼玉県</option><option>千葉県</option><option>東京都</option><option>神奈川県</option><option>新潟県</option><option>富山県</option><option>石川県</option><option>福井県</option><option>山梨県</option><option>長野県</option><option>岐阜県</option><option>静岡県</option><option>愛知県</option><option>三重県</option><option>滋賀県</option><option>京都府</option><option>大阪府</option><option>兵庫県</option><option>奈良県</option><option>和歌山県</option><option>鳥取県</option><option>島根県</option><option>岡山県</option><option>広島県</option><option>山口県</option><option>徳島県</option><option>香川県</option><option>愛媛県</option><option>高知県</option><option>福岡県</option><option>佐賀県</option><option>長崎県</option><option>熊本県</option><option>大分県</option><option>宮崎県</option><option>鹿児島県</option><option>沖縄県</option></select></div></div>
       <div class="form-group"><label>住所</label><input type="text" name="ship_address" placeholder="市区町村・番地・建物"></div>
       <div class="form-group"><label>電話番号</label><input type="tel" name="ship_phone"></div>
