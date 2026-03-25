@@ -282,7 +282,7 @@ function renderProducts(){
         <div class="name-jp" title="${escHtml(p.name_jp)}">${escHtml(p.name_jp)}</div>
         <div class="color-bar-wrap"><div class="color-bar" style="background:${isRainbow?'linear-gradient(135deg,#ef4444,#f97316,#eab308,#22c55e,#3b82f6,#a855f7)':colorHex}${p.color==='WHITE'?';border:1px solid #ddd':''}"></div><div class="color-bar-label">${escHtml(p.color)}${p.size&&p.size!=='-'?' / '+escHtml(p.size):''}</div></div>
         <div class="product-badges">${p.is_new?'<span class="badge-new">NEW</span>':''}${p.stock<=0?'<span class="badge-stock">在庫切れ</span>':''}${p.is_discontinued?'<span class="badge-discontinued">終売</span>':''}</div>
-        <div class="stock-info">${canOrder?p.stock+'個':(p.stock<=0?'在庫なし':'注文不可')}</div>
+        <div class="stock-info">${canOrder?(p.stock<=5?'残り'+p.stock+'個':''):(p.stock<=0?'在庫なし':'注文不可')}</div>
         <div class="price-line"><span class="wholesale-price">¥${p.wholesale_price.toLocaleString()}</span><span class="retail-price">小売 ¥${p.retail_price.toLocaleString()}</span></div>
         <div class="rate-info">掛率: ${Math.round(p.discount_rate*100)}% | 税率: ${Math.round(p.tax_rate*100)}%</div>
         ${canOrder?`<div class="qty-row"><button class="qty-btn" onclick="changeQty(this,-1)">−</button><input type="number" class="qty-input" value="1" min="1" max="${p.stock}" data-key="${key}"><button class="qty-btn" onclick="changeQty(this,1)">+</button></div><button class="add-btn" onclick="addToCart('${key}',this)">カートに追加</button>`:'<div class="no-order">注文不可</div>'}
