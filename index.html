@@ -186,9 +186,6 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
 
 
 
-
-
-
 /* Mobile */
 @media(max-width:1024px){
   .cart-sidebar{display:none}
@@ -251,7 +248,7 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
 <!-- Checkout -->
 <div class="checkout-overlay" id="checkout-overlay">
   <div class="checkout-modal">
-    <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;border:none;padding:0">会社情報</h2><button class="checkout-close-btn" onclick="closeCheckout()">&times;</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e63946"><h2 style="margin:0;border:none;padding:0">会社情報</h2><button class="checkout-close-btn" onclick="closeCheckout()">&times;</button></div>
     <form id="checkout-form" onsubmit="return false">
       <div class="form-group"><label>会社名 <span style="color:#e63946;font-size:10px">必須</span></label><input type="text" name="company_name" required></div>
       <div class="form-group"><label>担当者名 <span style="color:#e63946;font-size:10px">必須</span></label><input type="text" name="contact_name" required></div>
