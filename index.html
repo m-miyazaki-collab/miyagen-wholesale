@@ -32,7 +32,9 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
 #products-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;padding:0 20px 20px}
 .product-card{background:white;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);transition:transform .15s,box-shadow .15s;border:2px solid transparent}
 .product-card:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.1)}
-.product-card.out-of-stock{opacity:.5}
+.product-card.out-of-stock{opacity:.55;position:relative}
+.product-card.out-of-stock .img-wrap::after{content:'SOLD OUT';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.6);color:white;padding:6px 16px;border-radius:4px;font-size:13px;font-weight:bold;letter-spacing:1px}
+.product-card.out-of-stock .img-wrap{position:relative}
 .product-card .img-wrap{width:100%;height:140px;overflow:hidden;background:#f0f0f0;display:flex;align-items:center;justify-content:center}
 .product-card .img-wrap img{width:100%;height:100%;object-fit:cover}
 .product-card .no-img{color:#aaa;font-size:11px;text-align:center;padding:8px}
@@ -190,11 +192,11 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
     <div id="products-grid"></div>
     <footer class="site-footer">
       <p>&copy; MIYAGEN Trail Engineering</p>
-      <p style="margin-top:8px"><a href="#" onclick="openAdminLogin();return false">管理画面</a></p>
+      
     </footer>
   </div>
   <div class="cart-sidebar" id="cart-sidebar">
-    <div class="cart-sidebar-header"><h2>カート</h2><span class="cart-count" id="cart-count">0点</span></div>
+    <div class="cart-sidebar-header"><h2>カート</h2><div style="display:flex;align-items:center;gap:8px"><span class="cart-count" id="cart-count">0点</span><button id="cart-clear-btn" onclick="if(cart.length&&confirm('カートを空にしますか？')){cart=[];saveCart();renderCartSidebar();updateCartBadge()}" style="background:none;border:1px solid #ddd;border-radius:4px;padding:2px 6px;font-size:9px;color:#999;cursor:pointer;display:none">全削除</button></div></div>
     <div class="cart-items-list" id="cart-items"></div>
     <div class="cart-footer" id="cart-footer"></div>
   </div>
@@ -311,6 +313,7 @@ function updateCartBadge(){const total=cart.reduce((s,i)=>s+i.quantity,0);const 
 
 function renderCartSidebar(){
   const items=document.getElementById('cart-items');const footer=document.getElementById('cart-footer');updateCartBadge();
+  const clearBtn=document.getElementById('cart-clear-btn');if(clearBtn)clearBtn.style.display=cart.length>0?'inline-block':'none';
   if(cart.length===0){items.innerHTML='<div class="cart-empty">カートは空です</div>';footer.innerHTML='';return}
   items.innerHTML=cart.map(i=>{const p=i.product;const key=getProductKey(p);const colorHex=COLOR_MAP[p.color]||'#ccc';const thumbHtml=p.image?`<img class="item-thumb" src="${p.image}" alt="">`:`<span class="item-color-dot" style="width:36px;height:36px;border-radius:4px;background:${colorHex}"></span>`;return`<div class="cart-item">${thumbHtml}<span class="item-color-dot" style="background:${colorHex}"></span><div class="item-body"><div class="item-name">${p.name_en||p.name_jp}</div><div class="item-detail">${p.color}${p.size!=='-'?' / '+p.size:''}</div><div class="item-row2"><div class="item-qty"><button onclick="updateCartQty('${key}',${i.quantity-1})">-</button><input value="${i.quantity}" onchange="updateCartQty('${key}',parseInt(this.value)||1)"><button onclick="updateCartQty('${key}',${i.quantity+1})">+</button></div><div class="item-price">¥${(p.wholesale_price*i.quantity).toLocaleString()}</div></div></div><button class="item-remove" onclick="removeFromCart('${key}')">&times;</button></div>`}).join('');
   const subtotal=cart.reduce((s,i)=>s+i.product.wholesale_price*i.quantity,0);const shipping=subtotal<30000?1000:0;
