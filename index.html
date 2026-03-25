@@ -307,69 +307,6 @@ function updateCheckoutTotal(){const subtotal=cart.reduce((s,i)=>s+i.product.who
 async function submitOrder(){const form=document.getElementById('checkout-form');const fd=new FormData(form);if(!fd.get('company_name')||!fd.get('contact_name')||!fd.get('email')||!fd.get('phone')){alert('必須項目を入力してください');return}if(!GAS_URL){alert('GAS_URLが設定されていません');return}saveFormData();const subtotal=cart.reduce((s,i)=>s+i.product.wholesale_price*i.quantity,0);const shipping=subtotal<30000?1000:0;const tax10=Math.floor(cart.filter(i=>i.product.tax_rate===0.1).reduce((s,i)=>s+i.product.wholesale_price*i.quantity,0)*0.1);const tax8=Math.floor(cart.filter(i=>i.product.tax_rate===0.08).reduce((s,i)=>s+i.product.wholesale_price*i.quantity,0)*0.08);const total=subtotal+shipping+tax10+tax8;const orderItems=cart.map(i=>({sku:i.product.sku,color:i.product.color||'-',size:i.product.size||'-',qty:i.quantity}));const orderData={company:fd.get('company_name'),contact:fd.get('contact_name'),email:fd.get('email'),phone:fd.get('phone'),ship_name:fd.get('ship_name')||'',ship_postal:fd.get('ship_postal')||'',ship_pref:fd.get('ship_pref')||'',ship_address:fd.get('ship_address')||'',ship_phone:fd.get('ship_phone')||'',notes:fd.get('notes')||'',items:orderItems,order_date:new Date().toISOString()};const btn=document.getElementById('submit-btn');btn.disabled=true;btn.textContent='送信中...';try{const jsonStr=JSON.stringify(orderData);const encodedPayload=encodeURIComponent(jsonStr);const scriptEl=document.createElement('script');scriptEl.src=GAS_URL+'?payload='+encodedPayload+'&callback=orderCallback';document.body.appendChild(scriptEl);window.orderCallback=function(){};await new Promise(r=>setTimeout(r,4000));try{scriptEl.remove()}catch(e){};alert('注文が完了しました！\nご注文ありがとうございます。');cart=[];saveCart();renderCartSidebar();updateCartBadge();closeCheckout()}catch(e){alert('送信エラーが発生しました: '+e.message)}finally{btn.disabled=false;btn.textContent='注文を確定する'}}
 
 
-  const file=input.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      const text=e.target.result;
-      const lines=text.split('\n');
-      const rows=[];
-      st.textContent=`${rows.length}件の商品データを読み込みました。「商品データを更新」ボタンで反映できます。`;
-    }catch(err){
-    }
-  };
-  reader.readAsText(file,'UTF-8');
-}
-
-  const hi=k=>headers.indexOf(k);
-  const savedStock={};
-  PRODUCTS.forEach(p=>{savedStock[getProductKey(p)]=p.stock});
-  // Also keep saved images
-  const savedImages={};
-  PRODUCTS.forEach(p=>{if(p.image)savedImages[getProductKey(p)]=p.image});
-
-  const newProducts=[];
-  rows.forEach(cols=>{
-    const sku=parseInt(cols[hi('品番')])||0;
-    if(!sku)return;
-    const parsePrice=s=>{const n=String(s||'').replace(/[¥,]/g,'');return parseInt(n)||0};
-    const parseRate=s=>{const n=String(s||'').replace(/%/g,'');return parseFloat(n)/100||0};
-    const p={
-      sku,
-      name_jp:cols[hi('製品名（product name）')]||'',
-      name_en:cols[hi('product name')]||'',
-      color:cols[hi('カラー')]||'',
-      size:cols[hi('サイズ')]||'-',
-      category_main:cols[hi('カテゴリー大分類')]||'',
-      category_mid:cols[hi('カテゴリー中分類')]||'',
-      category_sub:cols[hi('カテゴリー小分類')]||'',
-      description:cols[hi('商品説明')]||'',
-      base_url:cols[hi('URL')]||'',
-      wholesale_ok:(cols[hi('卸し販売')]||'').trim()==='OK'?'OK':'NG',
-      retail_price:parsePrice(cols[hi('税抜上代')]),
-      tax_inclusive_price:parsePrice(cols[hi('税込価格')]),
-      wholesale_price:parsePrice(cols[hi('卸し単価（税抜）')]),
-      discount_rate:parseRate(cols[hi('掛け率')]),
-      tax_rate:parseRate(cols[hi('消費税')]),
-      is_new:!!(cols[hi('新商品')]||'').trim(),
-      is_discontinued:false,
-      stock:0,
-      image:''
-    };
-    const key=getProductKey(p);
-    if(savedStock[key]!==undefined)p.stock=savedStock[key];
-    if(savedImages[key])p.image=savedImages[key];
-    newProducts.push(p);
-  });
-
-  PRODUCTS.length=0;
-  newProducts.forEach(p=>PRODUCTS.push(p));
-  localStorage.setItem('miyagen_products',JSON.stringify(PRODUCTS));
-  renderProducts();renderCartSidebar();
-  st.textContent=`${newProducts.length}件の商品データを更新しました！`;
-}
-
-
 // Events
 document.getElementById('search-input').addEventListener('input',function(){searchQuery=this.value.trim();renderProducts()});
 document.getElementById('checkout-overlay').addEventListener('click',function(e){if(e.target===this)closeCheckout()});
