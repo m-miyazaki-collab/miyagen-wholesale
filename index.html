@@ -176,10 +176,10 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
       <div class="search-sort-row">
         <input type="text" id="search-input" class="search-box" placeholder="商品名、色、品番で検索...">
         <select id="sort-select" class="sort-select" onchange="renderProducts()">
+          <option value="sku-desc" selected>品番順 ↓</option>
           <option value="name-asc">商品名 A→Z</option>
           <option value="default">注文可能優先</option>
           <option value="sku-asc">品番順 ↑</option>
-          <option value="sku-desc">品番順 ↓</option>
           <option value="price-asc">卸価格 安い順</option>
           <option value="price-desc">卸価格 高い順</option>
           <option value="stock-desc">在庫多い順</option>
@@ -275,7 +275,7 @@ function renderProducts(){
     const card=document.createElement('div');card.className='product-card'+(canOrder?'':' out-of-stock');
     const safeName=escHtml(p.name_en||p.name_jp||'');
     card.innerHTML=`
-      <div class="img-wrap">${p.image?`<img src="${escHtml(p.image)}" alt="${escHtml(p.name_en)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>${safeName}</div>'">`:`<div class="no-img">${escHtml(p.name_en||p.name_jp)}</div>`}</div>
+      <div class="img-wrap">${p.image?`<img src="${escHtml(p.image+(p.image.indexOf('?')>=0?'&':'?')+'width=400')}" alt="${escHtml(p.name_en)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>${safeName}</div>'">`:`<div class="no-img">${escHtml(p.name_en||p.name_jp)}</div>`}</div>
       <div class="product-info">
         <div class="sku-line">#${escHtml(p.sku)}</div>
         <h3 title="${escHtml(p.name_en||p.name_jp)}">${escHtml(p.name_en||p.name_jp)}</h3>
