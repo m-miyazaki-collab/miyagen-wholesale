@@ -190,6 +190,10 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
 </style>
 </head>
 <body>
+<!-- Password Gate -->
+<div id="pw-gate" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#f5f5f5;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"><div style="text-align:center;background:white;padding:48px 40px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.1);max-width:360px;width:90%"><h1 style="font-size:1.3rem;margin:0 0 4px;color:#1a1a2e;font-weight:bold">MIYAGEN Trail Engineering</h1><p style="color:#666;margin:0 0 24px;font-size:0.85rem">取引先専用 卸注文ページ</p><input type="email" id="pw-email" placeholder="メールアドレス" style="padding:12px 16px;font-size:1rem;border:1px solid #ddd;border-radius:8px;width:100%;box-sizing:border-box;text-align:center;outline:none;margin-bottom:8px" onkeypress="if(event.key==='Enter')document.getElementById('pw-input').focus()"><input type="password" id="pw-input" placeholder="パスワード" style="padding:12px 16px;font-size:1rem;border:1px solid #ddd;border-radius:8px;width:100%;box-sizing:border-box;text-align:center;outline:none" onkeypress="if(event.key==='Enter')checkPw()"><button onclick="checkPw()" style="margin-top:12px;padding:12px 0;width:100%;font-size:1rem;background:#1a1a2e;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold">ログイン</button><p id="pw-err" style="color:#e74c3c;margin:12px 0 0;font-size:0.85rem;display:none"></p></div></div>
+<script>(function(){var K='miyagen_auth',KE='miyagen_auth_email',E=30*24*60*60*1000,H='41359c1ea3e351a25ae4a3d60721db1d32cc11842be003ba680bdc68a738cd38',s=localStorage.getItem(K),e=localStorage.getItem(KE);if(s&&e&&Date.now()-parseInt(s)<E){document.getElementById('pw-gate').style.display='none'}window.checkPw=async function(){var email=(document.getElementById('pw-email').value||'').trim();var pw=document.getElementById('pw-input').value;var errEl=document.getElementById('pw-err');if(!email){errEl.textContent='メールアドレスを入力してください';errEl.style.display='block';return}if(!email.match(/^[^@]+@[^@]+\.[^@]+$/)){errEl.textContent='正しいメールアドレスを入力してください';errEl.style.display='block';return}try{var enc=new TextEncoder();var d=enc.encode(pw+'_miyagen_wholesale_2026');var buf=await crypto.subtle.digest('SHA-256',d);var h=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0')}).join('')}catch(er){errEl.textContent='エラーが発生しました';errEl.style.display='block';return}if(h===H){localStorage.setItem(K,Date.now().toString());localStorage.setItem(KE,email);document.getElementById('pw-gate').style.display='none';initAfterLogin(email)}else{errEl.textContent='パスワードが正しくありません';errEl.style.display='block'}}})();</script>
+<!-- End Password Gate -->
 <header>
   <div class="header-left"><div><h1 class="header-title">MIYAGEN Trail Engineering</h1><p class="header-subtitle">Wholesale Order System / 取引先専用 卸注文ページ</p></div></div>
   <div class="header-right">
@@ -418,18 +422,9 @@ document.getElementById('search-input').addEventListener('input',function(){sear
 document.getElementById('checkout-overlay').addEventListener('click',function(e){if(e.target===this)closeCheckout()});
 document.getElementById('checkout-form').addEventListener('input',saveFormData);
 
-// Cloudflare Access email detection & shop info auto-fill
+// Email detection & shop info auto-fill
 let shopEntries=[];
-function base64urlToBase64(str){let b=str.replace(/-/g,'+').replace(/_/g,'/');while(b.length%4)b+='=';return b}
-function getCFEmail(){
-  try{
-    const cookie=document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('CF_Authorization='));
-    if(!cookie)return null;
-    const token=cookie.split('=')[1];
-    const payload=JSON.parse(atob(base64urlToBase64(token.split('.')[1])));
-    return payload.email||null;
-  }catch(e){return null}
-}
+function getStoredEmail(){return localStorage.getItem('miyagen_auth_email')||null}
 function lookupShopByEmail(email){
   if(!email||!GAS_URL)return;
   const s=document.createElement('script');
@@ -485,7 +480,8 @@ function applyShipData(shop){
 }
 
 // Init
-const cfEmail=getCFEmail();
+let cfEmail=getStoredEmail();
+function initAfterLogin(email){cfEmail=email;lookupShopByEmail(email);document.getElementById('history-btn').style.display=''}
 if(cfEmail){lookupShopByEmail(cfEmail);document.getElementById('history-btn').style.display=''}
 
 loadProducts();
