@@ -190,6 +190,10 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
 </style>
 </head>
 <body>
+<!-- Password Gate -->
+<div id="pw-gate" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#f5f5f5;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"><div style="text-align:center;background:white;padding:48px 40px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.1);max-width:360px;width:90%"><h1 style="font-size:1.3rem;margin:0 0 4px;color:#1a1a2e;font-weight:bold">MIYAGEN Trail Engineering</h1><p style="color:#666;margin:0 0 32px;font-size:0.85rem">取引先専用 卸注文ページ</p><input type="password" id="pw-input" placeholder="パスワードを入力" style="padding:12px 16px;font-size:1rem;border:1px solid #ddd;border-radius:8px;width:100%;box-sizing:border-box;text-align:center;outline:none" onkeypress="if(event.key==='Enter')checkPw()"><button onclick="checkPw()" style="margin-top:12px;padding:12px 0;width:100%;font-size:1rem;background:#1a1a2e;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold">ログイン</button><p id="pw-err" style="color:#e74c3c;margin:12px 0 0;font-size:0.85rem;display:none">パスワードが正しくありません</p></div></div>
+<script>(function(){var K='miyagen_auth',E=30*24*60*60*1000,s=localStorage.getItem(K);if(s&&Date.now()-parseInt(s)<E){document.getElementById('pw-gate').style.display='none'}window.checkPw=function(){if(document.getElementById('pw-input').value==='2022'){localStorage.setItem(K,Date.now().toString());document.getElementById('pw-gate').style.display='none'}else{document.getElementById('pw-err').style.display='block'}}})();</script>
+<!-- End Password Gate -->
 <header>
   <div class="header-left"><div><h1 class="header-title">MIYAGEN Trail Engineering</h1><p class="header-subtitle">Wholesale Order System / 取引先専用 卸注文ページ</p></div></div>
   <div class="header-right">
