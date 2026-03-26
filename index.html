@@ -190,10 +190,61 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
 </style>
 </head>
 <body>
-<!-- Password Gate -->
-<div id="pw-gate" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#f5f5f5;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"><div style="text-align:center;background:white;padding:48px 40px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.1);max-width:360px;width:90%"><h1 style="font-size:1.3rem;margin:0 0 4px;color:#1a1a2e;font-weight:bold">MIYAGEN Trail Engineering</h1><p style="color:#666;margin:0 0 24px;font-size:0.85rem">取引先専用 卸注文ページ</p><input type="email" id="pw-email" placeholder="メールアドレス" style="padding:12px 16px;font-size:1rem;border:1px solid #ddd;border-radius:8px;width:100%;box-sizing:border-box;text-align:center;outline:none;margin-bottom:8px" onkeypress="if(event.key==='Enter')document.getElementById('pw-input').focus()"><input type="password" id="pw-input" placeholder="パスワード" style="padding:12px 16px;font-size:1rem;border:1px solid #ddd;border-radius:8px;width:100%;box-sizing:border-box;text-align:center;outline:none" onkeypress="if(event.key==='Enter')checkPw()"><button onclick="checkPw()" style="margin-top:12px;padding:12px 0;width:100%;font-size:1rem;background:#1a1a2e;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold">ログイン</button><p id="pw-err" style="color:#e74c3c;margin:12px 0 0;font-size:0.85rem;display:none"></p></div></div>
-<script>(function(){var K='miyagen_auth',KE='miyagen_auth_email',E=30*24*60*60*1000,H='41359c1ea3e351a25ae4a3d60721db1d32cc11842be003ba680bdc68a738cd38',s=localStorage.getItem(K),e=localStorage.getItem(KE);if(s&&e&&Date.now()-parseInt(s)<E){document.getElementById('pw-gate').style.display='none'}window.checkPw=async function(){var email=(document.getElementById('pw-email').value||'').trim();var pw=document.getElementById('pw-input').value;var errEl=document.getElementById('pw-err');if(!email){errEl.textContent='メールアドレスを入力してください';errEl.style.display='block';return}if(!email.match(/^[^@]+@[^@]+\.[^@]+$/)){errEl.textContent='正しいメールアドレスを入力してください';errEl.style.display='block';return}try{var enc=new TextEncoder();var d=enc.encode(pw+'_miyagen_wholesale_2026');var buf=await crypto.subtle.digest('SHA-256',d);var h=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0')}).join('')}catch(er){errEl.textContent='エラーが発生しました';errEl.style.display='block';return}if(h===H){localStorage.setItem(K,Date.now().toString());localStorage.setItem(KE,email);document.getElementById('pw-gate').style.display='none';initAfterLogin(email)}else{errEl.textContent='パスワードが正しくありません';errEl.style.display='block'}}})();</script>
-<!-- End Password Gate -->
+<!-- Auth Gate -->
+<div id="auth-gate" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#f5f5f5;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+<div style="text-align:center;background:white;padding:48px 40px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.1);max-width:360px;width:90%">
+<h1 style="font-size:1.3rem;margin:0 0 4px;color:#1a1a2e;font-weight:bold">MIYAGEN Trail Engineering</h1>
+<p style="color:#666;margin:0 0 24px;font-size:0.85rem">取引先専用 卸注文ページ</p>
+<div id="auth-step1">
+<input type="email" id="auth-email" placeholder="メールアドレス" style="padding:12px 16px;font-size:1rem;border:1px solid #ddd;border-radius:8px;width:100%;box-sizing:border-box;text-align:center;outline:none" onkeypress="if(event.key==='Enter')sendAuthCode()">
+<button id="auth-send-btn" onclick="sendAuthCode()" style="margin-top:12px;padding:12px 0;width:100%;font-size:1rem;background:#1a1a2e;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold">認証コードを送信</button>
+</div>
+<div id="auth-step2" style="display:none">
+<p style="font-size:0.85rem;color:#666;margin-bottom:12px" id="auth-sent-msg"></p>
+<input type="text" id="auth-code" placeholder="6桁の認証コード" maxlength="6" inputmode="numeric" style="padding:12px 16px;font-size:1.2rem;border:1px solid #ddd;border-radius:8px;width:100%;box-sizing:border-box;text-align:center;outline:none;letter-spacing:6px" onkeypress="if(event.key==='Enter')verifyAuthCode()">
+<button id="auth-verify-btn" onclick="verifyAuthCode()" style="margin-top:12px;padding:12px 0;width:100%;font-size:1rem;background:#e63946;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold">ログイン</button>
+<button onclick="document.getElementById('auth-step1').style.display='';document.getElementById('auth-step2').style.display='none';document.getElementById('auth-err').style.display='none'" style="margin-top:8px;padding:8px 0;width:100%;font-size:0.85rem;background:none;border:1px solid #ddd;border-radius:8px;cursor:pointer;color:#666">メールアドレスを変更</button>
+</div>
+<p id="auth-err" style="color:#e74c3c;margin:12px 0 0;font-size:0.85rem;display:none"></p>
+</div>
+</div>
+<script>
+(function(){
+var GU='https://script.google.com/macros/s/AKfycbyJzifhlzFb0TRFHJ6LLm8UpVo0DbGjWL7a3tgeigmiWUqhGL9xaZOiqTk9i6x2dJgI/exec';
+var K='miyagen_auth',KE='miyagen_auth_email',E=30*24*60*60*1000;
+var s=localStorage.getItem(K),e=localStorage.getItem(KE);
+if(s&&e&&Date.now()-parseInt(s)<E){document.getElementById('auth-gate').style.display='none'}
+var authEmail='';
+window.sendAuthCode=function(){
+  var email=(document.getElementById('auth-email').value||'').trim();
+  var errEl=document.getElementById('auth-err');errEl.style.display='none';
+  if(!email||!email.match(/^[^@]+@[^@]+\.[^@]+$/)){errEl.textContent='正しいメールアドレスを入力してください';errEl.style.display='block';return}
+  authEmail=email;
+  var btn=document.getElementById('auth-send-btn');btn.disabled=true;btn.textContent='送信中...';
+  var cb='authSendCb_'+Date.now();var sc=document.createElement('script');
+  window[cb]=function(data){try{sc.remove()}catch(x){}delete window[cb];btn.disabled=false;btn.textContent='認証コードを送信';
+    if(data&&data.status==='ok'){document.getElementById('auth-step1').style.display='none';document.getElementById('auth-step2').style.display='';document.getElementById('auth-sent-msg').textContent=email+' に認証コードを送信しました';document.getElementById('auth-code').focus()}
+    else{errEl.textContent=(data&&data.message)||'送信に失敗しました';errEl.style.display='block'}};
+  sc.src=GU+'?action=send_auth_code&email='+encodeURIComponent(email)+'&callback='+cb;
+  sc.onerror=function(){try{sc.remove()}catch(x){}delete window[cb];btn.disabled=false;btn.textContent='認証コードを送信';errEl.textContent='通信エラーが発生しました';errEl.style.display='block'};
+  document.body.appendChild(sc);
+};
+window.verifyAuthCode=function(){
+  var code=(document.getElementById('auth-code').value||'').trim();
+  var errEl=document.getElementById('auth-err');errEl.style.display='none';
+  if(!code||code.length!==6){errEl.textContent='6桁の認証コードを入力してください';errEl.style.display='block';return}
+  var btn=document.getElementById('auth-verify-btn');btn.disabled=true;btn.textContent='確認中...';
+  var cb='authVerifyCb_'+Date.now();var sc=document.createElement('script');
+  window[cb]=function(data){try{sc.remove()}catch(x){}delete window[cb];btn.disabled=false;btn.textContent='ログイン';
+    if(data&&data.status==='ok'){localStorage.setItem(K,Date.now().toString());localStorage.setItem(KE,authEmail);document.getElementById('auth-gate').style.display='none';if(typeof initAfterLogin==='function')initAfterLogin(authEmail)}
+    else{errEl.textContent=(data&&data.message)||'認証に失敗しました';errEl.style.display='block'}};
+  sc.src=GU+'?action=verify_auth_code&email='+encodeURIComponent(authEmail)+'&code='+encodeURIComponent(code)+'&callback='+cb;
+  sc.onerror=function(){try{sc.remove()}catch(x){}delete window[cb];btn.disabled=false;btn.textContent='ログイン';errEl.textContent='通信エラーが発生しました';errEl.style.display='block'};
+  document.body.appendChild(sc);
+};
+})();
+</script>
+<!-- End Auth Gate -->
 <header>
   <div class="header-left"><div><h1 class="header-title">MIYAGEN Trail Engineering</h1><p class="header-subtitle">Wholesale Order System / 取引先専用 卸注文ページ</p></div></div>
   <div class="header-right">
