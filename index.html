@@ -364,7 +364,7 @@ s.onerror=function(){try{s.remove()}catch(e){}if(cached){try{PRODUCTS=JSON.parse
 document.body.appendChild(s);
 }
 function onProductsReady(){
-cart=cart.map(function(i){var cur=PRODUCTS.find(function(p){return p.sku===i.product.sku&&(p.color||'')===(i.product.color||'')&&(p.size||'')===(i.product.size||'')});if(!cur)return null;return{product:cur,quantity:Math.min(i.quantity,cur.stock)}}).filter(function(i){return i!==null&&i.product.wholesale_ok==='OK'&&i.product.stock>0});
+cart=cart.map(function(i){var matches=PRODUCTS.filter(function(p){return String(p.sku)===String(i.product.sku)&&(p.color||'')===(i.product.color||'')&&(p.size||'')===(i.product.size||'')});var cur=matches.find(function(p){return p.wholesale_ok==='OK'&&p.stock>0})||matches[0];if(!cur)return null;return{product:cur,quantity:Math.min(i.quantity,cur.stock)}}).filter(function(i){return i!==null&&i.product.wholesale_ok==='OK'&&i.product.stock>0});
 localStorage.setItem('miyagen_cart',JSON.stringify(cart));
 initFilters();renderProducts();renderCartSidebar();updateCartBadge();
 }
@@ -412,7 +412,7 @@ function renderProducts(){
 }
 
 function changeQty(btn,d){const i=btn.parentElement.querySelector('.qty-input');const mx=parseInt(i.max)||999;let v=parseInt(i.value)||1;v=Math.max(1,Math.min(mx,v+d));i.value=v}
-function addToCart(key,btnEl){const product=PRODUCTS.find(p=>getProductKey(p)===key);if(!product)return;const qtyInput=document.querySelector(`input[data-key="${key}"]`);const qty=parseInt(qtyInput?.value)||1;const existing=cart.find(i=>getProductKey(i.product)===key);if(existing){existing.quantity=Math.min(existing.quantity+qty,product.stock)}else{cart.push({product,quantity:Math.min(qty,product.stock)})}saveCart();renderCartSidebar();updateCartBadge();if(qtyInput)qtyInput.value=1;if(btnEl){btnEl.textContent='✓ 追加しました';btnEl.classList.add('added');setTimeout(()=>{btnEl.textContent='カートに追加';btnEl.classList.remove('added')},1200)}}
+function addToCart(key,btnEl){const matches=PRODUCTS.filter(p=>getProductKey(p)===key);const product=matches.find(p=>p.wholesale_ok==='OK'&&p.stock>0)||matches[0];if(!product)return;const qtyInput=document.querySelector(`input[data-key="${key}"]`);const qty=parseInt(qtyInput?.value)||1;const existing=cart.find(i=>getProductKey(i.product)===key);if(existing){existing.quantity=Math.min(existing.quantity+qty,product.stock)}else{cart.push({product,quantity:Math.min(qty,product.stock)})}saveCart();renderCartSidebar();updateCartBadge();if(qtyInput)qtyInput.value=1;if(btnEl){btnEl.textContent='✓ 追加しました';btnEl.classList.add('added');setTimeout(()=>{btnEl.textContent='カートに追加';btnEl.classList.remove('added')},1200)}}
 function removeFromCart(key){cart=cart.filter(i=>getProductKey(i.product)!==key);saveCart();renderCartSidebar();updateCartBadge()}
 function updateCartQty(key,qty){const item=cart.find(i=>getProductKey(i.product)===key);if(item){item.quantity=Math.max(1,Math.min(qty,item.product.stock));saveCart();renderCartSidebar()}}
 function saveCart(){localStorage.setItem('miyagen_cart',JSON.stringify(cart))}
