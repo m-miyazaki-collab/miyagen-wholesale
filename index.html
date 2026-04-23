@@ -342,6 +342,21 @@ window.verifyAuthCode=function(){
 
 <script>
 
+// === バージョン管理: デプロイ時にインクリメント ===
+var APP_VERSION='20260423b';
+(function(){
+  var prev=localStorage.getItem('miyagen_app_version');
+  if(prev && prev!==APP_VERSION){
+    // バージョン変更 → キャッシュクリアして再読み込み
+    localStorage.removeItem('miyagen_products_cache');
+    localStorage.removeItem('miyagen_products_cache_time');
+    localStorage.setItem('miyagen_app_version',APP_VERSION);
+    location.reload();
+    return;
+  }
+  localStorage.setItem('miyagen_app_version',APP_VERSION);
+})();
+
 let PRODUCTS=[];let productsLoaded=false;
 const GAS_URL='https://script.google.com/macros/s/AKfycbyJzifhlzFb0TRFHJ6LLm8UpVo0DbGjWL7a3tgeigmiWUqhGL9xaZOiqTk9i6x2dJgI/exec';
 
