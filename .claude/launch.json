@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "miyagen",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["/Users/mskmyzk/miyagen-wholesale/serve.sh"],
+      "port": 8090
+    }
+  ]
+}

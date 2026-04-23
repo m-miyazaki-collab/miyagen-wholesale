@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>MIYAGEN Trail Engineering — 卸注文ページ</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -343,7 +346,7 @@ window.verifyAuthCode=function(){
 <script>
 
 // === バージョン管理: デプロイ時にインクリメント ===
-var APP_VERSION='20260423b';
+var APP_VERSION='20260423c';
 (function(){
   var prev=localStorage.getItem('miyagen_app_version');
   if(prev && prev!==APP_VERSION){
@@ -379,7 +382,19 @@ s.onerror=function(){try{s.remove()}catch(e){}if(cached){try{PRODUCTS=JSON.parse
 document.body.appendChild(s);
 }
 function onProductsReady(){
-cart=cart.map(function(i){var matches=PRODUCTS.filter(function(p){return String(p.sku)===String(i.product.sku)&&(p.color||'')===(i.product.color||'')&&(p.size||'')===(i.product.size||'')});var cur=matches.find(function(p){return p.wholesale_ok==='OK'&&p.stock>0})||matches[0];if(!cur)return null;return{product:cur,quantity:Math.min(i.quantity,cur.stock)}}).filter(function(i){return i!==null&&i.product.wholesale_ok==='OK'&&i.product.stock>0});
+// 重複SKU+カラー+サイズを排除（OK+在庫ありを優先）
+var deduped={};
+PRODUCTS.forEach(function(p){
+  var key=String(p.sku)+'_'+(p.color||'')+'_'+(p.size||'');
+  var ex=deduped[key];
+  if(!ex){deduped[key]=p;return}
+  var ps=(p.wholesale_ok==='OK'?2:0)+(p.stock>0?1:0);
+  var es=(ex.wholesale_ok==='OK'?2:0)+(ex.stock>0?1:0);
+  if(ps>es)deduped[key]=p;
+});
+PRODUCTS=Object.values(deduped);
+
+cart=cart.map(function(i){var cur=PRODUCTS.find(function(p){return String(p.sku)===String(i.product.sku)&&(p.color||'')===(i.product.color||'')&&(p.size||'')===(i.product.size||'')});if(!cur)return null;return{product:cur,quantity:Math.min(i.quantity,cur.stock)}}).filter(function(i){return i!==null&&i.product.wholesale_ok==='OK'&&i.product.stock>0});
 localStorage.setItem('miyagen_cart',JSON.stringify(cart));
 initFilters();renderProducts();renderCartSidebar();updateCartBadge();
 }
