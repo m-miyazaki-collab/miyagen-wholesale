@@ -3374,6 +3374,7 @@ function openNewInvoice(){
 function closeNewInvoice(){
   document.getElementById('new-inv-modal').classList.remove('show');
   EDIT_INVOICE_ID=null;
+  window.EDIT_INVOICE_STATUS=null;
   var h=document.querySelector('#new-inv-modal .modal-header h3'); if(h)h.textContent='＋ 新規請求書作成';
 }
 function addNiRow(){
@@ -3401,6 +3402,7 @@ function editInvoice(invoiceId){
     document.getElementById('ni-email').value=d.email||'';
     document.getElementById('ni-phone').value=d.phone||'';
     document.getElementById('ni-taxid').value=d.taxId||'';
+    document.getElementById('ni-taxid-row').style.display='flex'; // 編集時は登録番号を常に見える/編集可能に
     if(d.invoiceDate)document.getElementById('ni-date').value=d.invoiceDate.replace(/\//g,'-');
     if(d.dueDate)document.getElementById('ni-due').value=d.dueDate.replace(/\//g,'-');
     document.getElementById('ni-shipping').value=d.shipping||0;
