@@ -536,7 +536,7 @@ td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius
       </div>
       <div class="modal-footer">
         <button class="btn" style="background:#e5e7eb;color:#333" onclick="closeNewInvoice()">キャンセル</button>
-        <button class="btn btn-primary" onclick="submitNewInvoice()">請求書を作成</button>
+        <button class="btn btn-primary" id="ni-submit-btn" onclick="submitNewInvoice()">請求書を作成</button>
       </div>
     </div>
   </div>
@@ -3377,6 +3377,7 @@ function closeNewInvoice(){
   EDIT_INVOICE_ID=null;
   window.EDIT_INVOICE_STATUS=null;
   var h=document.querySelector('#new-inv-modal .modal-header h3'); if(h)h.textContent='＋ 新規請求書作成';
+  var sb=document.getElementById('ni-submit-btn'); if(sb)sb.textContent='請求書を作成';
 }
 function addNiRow(){
   var tbody=document.getElementById('ni-items');
@@ -3398,6 +3399,7 @@ function editInvoice(invoiceId){
     EDIT_INVOICE_ID=invoiceId;
     openNewInvoice();
     document.querySelector('#new-inv-modal .modal-header h3').textContent='✎ 請求書を編集';
+    var sb=document.getElementById('ni-submit-btn'); if(sb)sb.textContent='更新する';
     document.getElementById('ni-company').value=d.company||'';
     document.getElementById('ni-contact').value=d.contact||'';
     document.getElementById('ni-email').value=d.email||'';
