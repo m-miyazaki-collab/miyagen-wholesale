@@ -3122,6 +3122,7 @@ function renderInvoices(){
       +'<td><span class="inv-status '+stCls+'">'+stLabel+'</span></td>'
       +'<td class="inv-actions">'
         +'<button class="inv-btn-view" onclick="viewInvoice(\''+escH(inv.invoiceId)+'\')">帳票</button> '
+        +'<button class="inv-btn-view" style="background:#2a9d8f" onclick="editInvoice(\''+escH(inv.invoiceId)+'\')">編集</button> '
         +(inv.archived
            ? '<button onclick="archiveInvoices([\''+escH(inv.invoiceId)+'\'],false)" style="background:#888;color:#fff;border:none;border-radius:3px;padding:2px 8px;font-size:10px;cursor:pointer">解除</button> '
            : '<button onclick="archiveInvoices([\''+escH(inv.invoiceId)+'\'],true)" style="background:#b8860b;color:#fff;border:none;border-radius:3px;padding:2px 8px;font-size:10px;cursor:pointer">ｱｰｶｲﾌﾞ</button> ')
@@ -3370,7 +3371,11 @@ function openNewInvoice(){
   document.getElementById('ni-items').innerHTML='<tr><td><input type="text" class="ni-name"></td><td><input type="number" class="ni-qty" value="1" min="1"></td><td><input type="number" class="ni-price" value="0" min="0"></td><td><select class="ni-tax"><option value="0.1">10%</option><option value="0.08">8%</option></select></td><td><button onclick="removeNiRow(this)" style="background:none;border:none;cursor:pointer;color:#e63946;font-size:14px">✕</button></td></tr>';
   document.getElementById('new-inv-modal').classList.add('show');
 }
-function closeNewInvoice(){document.getElementById('new-inv-modal').classList.remove('show')}
+function closeNewInvoice(){
+  document.getElementById('new-inv-modal').classList.remove('show');
+  EDIT_INVOICE_ID=null;
+  var h=document.querySelector('#new-inv-modal .modal-header h3'); if(h)h.textContent='＋ 新規請求書作成';
+}
 function addNiRow(){
   var tbody=document.getElementById('ni-items');
   var tr=document.createElement('tr');
@@ -3381,6 +3386,40 @@ function removeNiRow(btn){
   var tbody=document.getElementById('ni-items');
   if(tbody.rows.length<=1)return;
   btn.closest('tr').remove();
+}
+var EDIT_INVOICE_ID = null; // null=新規, それ以外=編集対象
+function editInvoice(invoiceId){
+  var s=document.createElement('script');
+  window.editLoadCb=function(d){
+    try{s.remove()}catch(e){}delete window.editLoadCb;
+    if(!d||d.status==='error'){alert('読み込み失敗: '+(d?d.message:'不明'));return}
+    EDIT_INVOICE_ID=invoiceId;
+    openNewInvoice();
+    document.querySelector('#new-inv-modal .modal-header h3').textContent='✎ 請求書を編集';
+    document.getElementById('ni-company').value=d.company||'';
+    document.getElementById('ni-contact').value=d.contact||'';
+    document.getElementById('ni-email').value=d.email||'';
+    document.getElementById('ni-phone').value=d.phone||'';
+    document.getElementById('ni-taxid').value=d.taxId||'';
+    if(d.invoiceDate)document.getElementById('ni-date').value=d.invoiceDate.replace(/\//g,'-');
+    if(d.dueDate)document.getElementById('ni-due').value=d.dueDate.replace(/\//g,'-');
+    document.getElementById('ni-shipping').value=d.shipping||0;
+    document.getElementById('ni-memo').value='';
+    var tbody=document.getElementById('ni-items');tbody.innerHTML='';
+    (d.items||[]).forEach(function(it){
+      addNiRow();
+      var tr=tbody.rows[tbody.rows.length-1];
+      tr.querySelector('.ni-name').value=it.name||'';
+      tr.querySelector('.ni-qty').value=it.qty||1;
+      tr.querySelector('.ni-price').value=it.price||0;
+      tr.querySelector('.ni-tax').value=String(it.taxRate||0.1);
+    });
+    if((d.items||[]).length===0)addNiRow();
+    window.EDIT_INVOICE_STATUS=d.status||'未請求';
+  };
+  s.src=GAS_URL+'?action=get_invoice_detail&invoiceId='+encodeURIComponent(invoiceId)+'&callback=editLoadCb&_='+Date.now();
+  s.onerror=function(){try{s.remove()}catch(e){}alert('通信エラー')};
+  document.body.appendChild(s);
 }
 function submitNewInvoice(){
   var company=document.getElementById('ni-company').value.trim();
@@ -3412,6 +3451,25 @@ function submitNewInvoice(){
     isSpot:mode==='spot',
     items:items
   });
+  if(EDIT_INVOICE_ID){
+    var reason='';
+    if(window.EDIT_INVOICE_STATUS && window.EDIT_INVOICE_STATUS!=='未請求'){
+      reason=prompt('この請求書は「'+window.EDIT_INVOICE_STATUS+'」です。変更理由を入力してください（必須）','');
+      if(reason===null)return;
+      if(!reason.trim()){alert('変更理由は必須です');return}
+    }
+    if(!confirm(company+' の請求書を更新しますか？'))return;
+    var es=document.createElement('script');
+    window.editSubmitCb=function(data){
+      try{es.remove()}catch(e){}delete window.editSubmitCb;
+      if(data&&data.status==='ok'){alert('更新しました\n合計: ¥'+Number(data.total).toLocaleString());closeNewInvoice();loadInvoices();}
+      else{alert('更新に失敗しました: '+(data?data.message:'不明'))}
+    };
+    es.src=GAS_URL+'?action=update_invoice&invoiceId='+encodeURIComponent(EDIT_INVOICE_ID)+'&payload='+encodeURIComponent(payload)+'&reason='+encodeURIComponent(reason)+'&callback=editSubmitCb&_='+Date.now();
+    es.onerror=function(){try{es.remove()}catch(e){}alert('通信エラー')};
+    document.body.appendChild(es);
+    return;
+  }
   if(!confirm(company+' 宛の請求書（'+items.length+'品目）を作成しますか？'))return;
   var s=document.createElement('script');
   window.createInvCb=function(data){
