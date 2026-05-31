@@ -3141,12 +3141,12 @@ function toggleShowArchived(){window.INV_SHOW_ARCHIVED=!window.INV_SHOW_ARCHIVED
 function archiveInvoices(ids,doArchive){
   var action=doArchive?'archive_invoices':'unarchive_invoices';
   var s=document.createElement('script');
-  window.archCb=function(data){
-    try{s.remove()}catch(e){}delete window.archCb;
+  window.arInvCb=function(data){
+    try{s.remove()}catch(e){}delete window.arInvCb;
     if(data&&data.status==='ok'){loadInvoices()}
     else{alert('処理に失敗しました: '+(data?data.message:'不明'))}
   };
-  s.src=GAS_URL+'?action='+action+'&ids='+encodeURIComponent(JSON.stringify(ids))+'&callback=archCb&_='+Date.now();
+  s.src=GAS_URL+'?action='+action+'&ids='+encodeURIComponent(JSON.stringify(ids))+'&callback=arInvCb&_='+Date.now();
   s.onerror=function(){try{s.remove()}catch(e){}alert('通信エラー')};
   document.body.appendChild(s);
 }
