@@ -757,7 +757,7 @@ td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius
 var GAS_URL='https://script.google.com/macros/s/AKfycbyJzifhlzFb0TRFHJ6LLm8UpVo0DbGjWL7a3tgeigmiWUqhGL9xaZOiqTk9i6x2dJgI/exec';
 var HASH='4412f853b2eb78c89a837eeaf0e346b4739e84051997ab8d2168eab0011c6093';
 // [2026-05-27] 商品マスタ v2 移行: 旧形式 (sku=8桁 / image=旧パス / discount_rate 等) キャッシュが残っていると破綻するため強制クリア
-var ADMIN_APP_VERSION='20260531-invoice-improve2';
+var ADMIN_APP_VERSION='20260531-invoice-improve3';
 (function(){
   var prev=localStorage.getItem('miyagen_admin_app_version');
   if(prev!==ADMIN_APP_VERSION){
@@ -3321,35 +3321,51 @@ function switchInvSubtab(btn,id){
 
 // ===== 新規請求書作成 =====
 var SPOT_CLIENTS = [];
+var MASTER_CLIENTS = [];
+function fillNiCompanyDatalist(list){
+  var dl=document.getElementById('ni-company-suggest');
+  if(dl)dl.innerHTML=list.map(function(c){return '<option value="'+escH(c.company)+'">'}).join('');
+}
 function onNiModeChange(){
   var mode=document.querySelector('input[name="ni-mode"]:checked').value;
   document.getElementById('ni-taxid-row').style.display=mode==='spot'?'flex':'none';
-  if(mode==='spot'&&SPOT_CLIENTS.length===0)loadSpotClients();
+  if(mode==='spot'){
+    if(SPOT_CLIENTS.length===0)loadSpotClients(); else fillNiCompanyDatalist(SPOT_CLIENTS);
+  }else{
+    if(MASTER_CLIENTS.length===0)loadMasterClients(); else fillNiCompanyDatalist(MASTER_CLIENTS);
+  }
 }
 function loadSpotClients(){
   var s=document.createElement('script');
   window.spotCb=function(data){
     try{s.remove()}catch(e){}delete window.spotCb;
-    if(data&&data.clients){
-      SPOT_CLIENTS=data.clients;
-      var dl=document.getElementById('ni-company-suggest');
-      dl.innerHTML=SPOT_CLIENTS.map(function(c){return '<option value="'+escH(c.company)+'">'}).join('');
-    }
+    if(data&&data.clients){SPOT_CLIENTS=data.clients;fillNiCompanyDatalist(SPOT_CLIENTS);}
   };
   s.src=GAS_URL+'?action=get_spot_clients&callback=spotCb&_='+Date.now();
   s.onerror=function(){try{s.remove()}catch(e){}};
   document.body.appendChild(s);
 }
+function loadMasterClients(){
+  var s=document.createElement('script');
+  window.niShopCb=function(data){
+    try{s.remove()}catch(e){}delete window.niShopCb;
+    if(data&&data.shops){MASTER_CLIENTS=data.shops;fillNiCompanyDatalist(MASTER_CLIENTS);}
+  };
+  s.src=GAS_URL+'?action=get_shop_list&callback=niShopCb&_='+Date.now();
+  s.onerror=function(){try{s.remove()}catch(e){}};
+  document.body.appendChild(s);
+}
 function onNiCompanyInput(){
   var mode=document.querySelector('input[name="ni-mode"]:checked').value;
-  if(mode!=='spot')return;
   var name=document.getElementById('ni-company').value.trim();
-  var hit=SPOT_CLIENTS.filter(function(c){return c.company===name})[0];
+  var src=mode==='spot'?SPOT_CLIENTS:MASTER_CLIENTS;
+  var hit=src.filter(function(c){return c.company===name})[0];
   if(hit){
     if(hit.contact)document.getElementById('ni-contact').value=hit.contact;
-    if(hit.billingEmail)document.getElementById('ni-email').value=hit.billingEmail;
+    var em=hit.email||hit.billingEmail;
+    if(em)document.getElementById('ni-email').value=em;
     if(hit.phone)document.getElementById('ni-phone').value=hit.phone;
-    if(hit.taxId)document.getElementById('ni-taxid').value=hit.taxId;
+    if(mode==='spot'&&hit.taxId)document.getElementById('ni-taxid').value=hit.taxId;
   }
 }
 function openNewInvoice(){
@@ -3368,6 +3384,7 @@ function openNewInvoice(){
   document.getElementById('ni-taxid-row').style.display='none';
   var masterRadio=document.querySelector('input[name="ni-mode"][value="master"]');
   if(masterRadio)masterRadio.checked=true;
+  onNiModeChange(); // マスター候補をロードして取引先名サジェストを用意
   // 明細を1行にリセット
   document.getElementById('ni-items').innerHTML='<tr><td><input type="text" class="ni-name"></td><td><input type="number" class="ni-qty" value="1" min="1"></td><td><input type="number" class="ni-price" value="0" min="0"></td><td><select class="ni-tax"><option value="0.1">10%</option><option value="0.08">8%</option></select></td><td><button onclick="removeNiRow(this)" style="background:none;border:none;cursor:pointer;color:#e63946;font-size:14px">✕</button></td></tr>';
   document.getElementById('new-inv-modal').classList.add('show');
