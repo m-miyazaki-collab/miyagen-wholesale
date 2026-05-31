@@ -462,6 +462,7 @@ td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius
         </select>
         <button class="btn" style="background:#334fb4;color:white" onclick="openNewInvoice()">＋ 新規作成</button>
         <button id="inv-bulk-del-btn" class="btn" style="background:#d33;color:white;display:none" onclick="deleteSelectedInvoices()">🗑 選択削除 (<span id="inv-sel-count">0</span>件)</button>
+        <button class="btn" style="background:#b8860b;color:#fff;display:none" id="inv-bulk-arch-btn" onclick="archiveSelected(true)">選択ｱｰｶｲﾌﾞ</button>
         <button id="inv-bulk-print-btn" class="btn" style="background:#10b981;color:white;display:none" onclick="bulkPrintInvoices('invoice')">🖨 選択印刷: 請求書 (<span id="inv-print-count">0</span>件)</button>
         <button id="inv-bulk-deliv-btn" class="btn" style="background:#e63946;color:white;display:none" onclick="bulkPrintInvoices('delivery')">🖨 選択印刷: 納品書 (<span id="inv-print-count2">0</span>件)</button>
         <button class="btn" style="background:#e5e7eb;color:#333;margin-left:auto" onclick="loadInvoices()">🔄 更新</button>
@@ -3078,9 +3079,11 @@ function loadInvoices(){
 }
 
 function renderInvoices(){
+  var showArchived=window.INV_SHOW_ARCHIVED===true;
   var filter=document.getElementById('inv-filter').value;
   var list=INVOICES;
   if(filter!=='all')list=list.filter(function(inv){return inv.status===filter});
+  if(!showArchived)list=list.filter(function(inv){return !inv.archived});
 
   // サマリ
   var totalAmt=0,unpaidAmt=0,billedAmt=0,paidAmt=0;
@@ -3096,6 +3099,8 @@ function renderInvoices(){
     +'<div class="inv-summary-card"><div class="label">未請求</div><div class="val red">'+unpaidCnt+'件 / ¥'+unpaidAmt.toLocaleString()+'</div></div>'
     +'<div class="inv-summary-card"><div class="label">請求済</div><div class="val blue">'+billedCnt+'件 / ¥'+billedAmt.toLocaleString()+'</div></div>'
     +'<div class="inv-summary-card"><div class="label">入金済</div><div class="val green">'+paidCnt+'件 / ¥'+paidAmt.toLocaleString()+'</div></div>';
+  document.getElementById('inv-summary').innerHTML+=
+    '<div class="inv-summary-card" style="cursor:pointer" onclick="toggleShowArchived()"><div class="label">表示</div><div class="val">'+(showArchived?'全件':'現役のみ')+'</div></div>';
 
   var el=document.getElementById('inv-list');
   if(list.length===0){el.innerHTML='<div style="text-align:center;color:#888;padding:30px;font-size:12px">対象の請求書はありません</div>';return}
@@ -3103,12 +3108,13 @@ function renderInvoices(){
   var html='<table class="inv-table"><thead><tr><th style="width:30px"><input type="checkbox" onchange="toggleAllInv(this.checked)"></th><th>請求書ID</th><th>注文ID</th><th>取引先</th><th>メール</th><th>請求日</th><th>支払期限</th><th style="text-align:right">合計金額</th><th>ステータス</th><th>操作</th></tr></thead><tbody>';
   list.forEach(function(inv){
     var stCls=inv.status==='入金済'?'paid':(inv.status==='請求済'?'billed':'unpaid');
+    var archBadge=inv.archived?' <span style="font-size:8px;background:#eee;color:#888;border-radius:3px;padding:1px 4px">ｱｰｶｲﾌﾞ</span>':'';
     var stLabel=inv.status==='入金済'?'✅ 入金済':(inv.status==='請求済'?'📨 請求済':'🔴 未請求');
     html+='<tr>'
       +'<td><input type="checkbox" class="inv-chk" value="'+escH(inv.invoiceId)+'" onchange="updateInvSelCount()"></td>'
       +'<td style="font-family:monospace;font-size:9px">'+escH(inv.invoiceId)+'</td>'
       +'<td style="font-family:monospace;font-size:9px">'+escH(inv.orderId)+'</td>'
-      +'<td style="font-weight:bold">'+escH(inv.company)+'</td>'
+      +'<td style="font-weight:bold'+(inv.archived?';opacity:0.55':'')+'">'+escH(inv.company)+archBadge+'</td>'
       +'<td style="font-size:10px;color:#555">'+escH(inv.email)+'</td>'
       +'<td>'+escH(inv.invoiceDate)+'</td>'
       +'<td>'+escH(inv.dueDate)+'</td>'
@@ -3116,6 +3122,9 @@ function renderInvoices(){
       +'<td><span class="inv-status '+stCls+'">'+stLabel+'</span></td>'
       +'<td class="inv-actions">'
         +'<button class="inv-btn-view" onclick="viewInvoice(\''+escH(inv.invoiceId)+'\')">帳票</button> '
+        +(inv.archived
+           ? '<button onclick="archiveInvoices([\''+escH(inv.invoiceId)+'\'],false)" style="background:#888;color:#fff;border:none;border-radius:3px;padding:2px 8px;font-size:10px;cursor:pointer">解除</button> '
+           : '<button onclick="archiveInvoices([\''+escH(inv.invoiceId)+'\'],true)" style="background:#b8860b;color:#fff;border:none;border-radius:3px;padding:2px 8px;font-size:10px;cursor:pointer">ｱｰｶｲﾌﾞ</button> ')
         +'<select onchange="changeInvStatus(\''+escH(inv.invoiceId)+'\',this.value);this.selectedIndex=0">'
           +'<option value="">変更...</option>'
           +'<option value="未請求">未請求</option>'
@@ -3127,6 +3136,25 @@ function renderInvoices(){
   });
   html+='</tbody></table>';
   el.innerHTML=html;
+}
+function toggleShowArchived(){window.INV_SHOW_ARCHIVED=!window.INV_SHOW_ARCHIVED;renderInvoices();}
+function archiveInvoices(ids,doArchive){
+  var action=doArchive?'archive_invoices':'unarchive_invoices';
+  var s=document.createElement('script');
+  window.archCb=function(data){
+    try{s.remove()}catch(e){}delete window.archCb;
+    if(data&&data.status==='ok'){loadInvoices()}
+    else{alert('処理に失敗しました: '+(data?data.message:'不明'))}
+  };
+  s.src=GAS_URL+'?action='+action+'&ids='+encodeURIComponent(JSON.stringify(ids))+'&callback=archCb&_='+Date.now();
+  s.onerror=function(){try{s.remove()}catch(e){}alert('通信エラー')};
+  document.body.appendChild(s);
+}
+function archiveSelected(doArchive){
+  var ids=[];document.querySelectorAll('.inv-chk:checked').forEach(function(cb){ids.push(cb.value)});
+  if(ids.length===0){alert('請求書を選択してください');return}
+  if(!confirm(ids.length+'件を'+(doArchive?'アーカイブ':'アーカイブ解除')+'します。よろしいですか？'))return;
+  archiveInvoices(ids,doArchive);
 }
 
 function changeInvStatus(invoiceId,status){
@@ -3174,6 +3202,7 @@ function updateInvSelCount(){
   // [2026-05-28] 一括印刷ボタンも連動
   var pc=document.getElementById('inv-print-count');if(pc)pc.textContent=cnt;
   var pc2=document.getElementById('inv-print-count2');if(pc2)pc2.textContent=cnt;
+  var ba=document.getElementById('inv-bulk-arch-btn');if(ba)ba.style.display=cnt>0?'inline-block':'none';
   var bp=document.getElementById('inv-bulk-print-btn');if(bp)bp.style.display=cnt>0?'inline-block':'none';
   var bd=document.getElementById('inv-bulk-deliv-btn');if(bd)bd.style.display=cnt>0?'inline-block':'none';
 }
