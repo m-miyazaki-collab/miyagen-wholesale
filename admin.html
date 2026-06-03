@@ -225,7 +225,7 @@ td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius
 <div class="wrap" id="wrap">
   <div class="hdr"><h1>MIYAGEN 管理画面</h1><div><a href="https://miyagen-wholesale.pages.dev/" style="margin-right:12px">&larr; 注文ページ</a><a href="#" onclick="adminLogout();return false" style="color:#e63946;font-size:11px">ログアウト</a></div></div>
   <div class="tabs">
-    <button class="tab" onclick="swTab(this,'t1');loadSyncMonitor()">同期状況</button>
+    <button class="tab" onclick="swTab(this,'tSNS');loadSNSTab()">SNS投稿</button>
     <button class="tab" onclick="swTab(this,'t3');loadOrders()">注文管理</button>
     <button class="tab" onclick="swTab(this,'tShops');loadShopsAdmin()">取引先</button>
     <button class="tab" onclick="swTab(this,'t4');loadInvoices()">請求管理</button>
@@ -234,10 +234,12 @@ td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius
     <button class="tab" onclick="swTab(this,'t7');loadBookings()">来店予約</button>
     <button class="tab" onclick="swTab(this,'t8');loadVoice()">YOUR VOICE</button>
     <button class="tab" onclick="swTab(this,'t9');loadContact()">Contact</button>
+    <button class="tab" onclick="swTab(this,'tTax');loadTaxCsv()">税理士CSV</button>
   </div>
-  <div id="t1" class="sec">
-    <!-- [2026-05-27] 同期状況監視タブ。商品マスタ_v2 は variations + Shopify の自動派生 cache なので、admin から手動編集は不要。
-         代わりに「同期が正常に動いているか」「データ品質に問題ないか」を一覧表示する。 -->
+  <div id="tSNS" class="sec">
+    <iframe id="sns-iframe" data-loaded="0" src="about:blank" style="width:100%;height:calc(100vh - 110px);border:none;display:block" allow="clipboard-read; clipboard-write"></iframe>
+  </div>
+  <div id="t1-deleted" style="display:none">
     <div style="padding:12px 4px">
       <h2 style="font-size:16px;margin:0 0 4px 0">🔄 同期状況監視</h2>
       <p style="font-size:11px;color:#888;margin:0 0 14px 0">
@@ -751,6 +753,13 @@ td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius
     </div>
     <div id="fb-contact-list"></div>
   </div>
+
+  <div id="tTax" class="sec">
+    <h2>税理士提出CSV</h2>
+    <p style="color:#666;font-size:13px">Mac の自動ツールが Drive に出力した月次CSVを表示・ダウンロードします（生成は毎月5日自動＋手動）。</p>
+    <div id="taxMonths" style="margin:8px 0"></div>
+    <div id="taxTable"></div>
+  </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script>
@@ -876,11 +885,6 @@ function loadProductsFromGAS(){
       try{saveProductsLocal&&saveProductsLocal()}catch(e){}
       try{takeSnapshot&&takeSnapshot()}catch(e){}
       try{renderStock&&renderStock()}catch(e){}
-      // [2026-05-28] sync monitor が active なら即座に再描画 (setTimeout fallback に依存しない)
-      try{
-        var syncSec=document.getElementById('t1');
-        if(syncSec&&syncSec.classList.contains('active')&&typeof renderSyncMonitor==='function')renderSyncMonitor();
-      }catch(e){}
     }else{
       var stbErr=document.getElementById('stb');if(stbErr)stbErr.innerHTML='<tr><td colspan="9" style="text-align:center;padding:20px;color:#e63946">読み込みに失敗しました</td></tr>';
       var loadEl=document.getElementById('sync-monitor-loading');if(loadEl)loadEl.innerHTML='商品マスタ_v2 を読み込めませんでした (GAS 応答異常)。ページを再読み込みしてください。';
@@ -899,6 +903,7 @@ function loadProductsFromGAS(){
 }
 
 function swTab(btn,id){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});btn.classList.add('active');document.querySelectorAll('.sec').forEach(function(s){s.classList.remove('active')});document.getElementById(id).classList.add('active')}
+function loadSNSTab(){var f=document.getElementById('sns-iframe');if(f&&f.getAttribute('data-loaded')==='0'){f.src='https://script.google.com/macros/s/AKfycbw338LHGzowktYAlyXI_71jUOH3hxvopZ9ERME9yY5SuoWEjwDlVvddopgEs8Ks5qa1ew/exec';f.setAttribute('data-loaded','1');}}
 
 function takeSnapshot(){savedSnapshot={};P.forEach(function(p){var k=ak(p);savedSnapshot[k]={stock:p.stock||0}})}
 
@@ -4284,6 +4289,74 @@ function bkCard(b,isPast){
     +'</div>'
     +(b.notes?'<div style="font-size:10px;color:#888;margin-top:4px">📝 '+escH(b.notes)+'</div>':'')
     +'</div>';
+}
+
+// ===== 税理士CSV タブ(2026-06-03) =====
+var _taxMonths = [];
+function jsonpTax(action, params, cb) {
+  var name = 'taxCb_' + Math.floor(Date.now()) + '_' + Math.floor(performance.now());
+  var s = document.createElement('script');
+  window[name] = function (data) { try { cb(data); } finally { delete window[name]; if (s.parentNode) s.parentNode.removeChild(s); } };
+  var q = Object.keys(params || {}).map(function (k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');
+  s.src = GAS_URL + '?action=' + action + '&callback=' + name + (q ? '&' + q : '') + '&_=' + Date.now();
+  s.onerror = function () { cb({ ok: false, error: 'network' }); };
+  document.body.appendChild(s);
+}
+function taxYen_(n) { return (Number(n) || 0).toLocaleString('ja-JP'); }
+function loadTaxCsv() {
+  document.getElementById('taxMonths').innerHTML = '読み込み中…';
+  document.getElementById('taxTable').innerHTML = '';
+  jsonpTax('get_tax_months', {}, function (res) {
+    if (!res || !res.ok) { document.getElementById('taxMonths').textContent = 'まだ出力がありません（' + ((res && res.error) || 'error') + '）'; return; }
+    _taxMonths = res.months || [];
+    if (!_taxMonths.length) { document.getElementById('taxMonths').textContent = 'まだ出力された月がありません。'; return; }
+    document.getElementById('taxMonths').innerHTML = _taxMonths.map(function (m, i) {
+      return '<button class="tab' + (i === 0 ? ' active' : '') + '" onclick="selectTaxMonth(' + i + ',this)">' + m.month + '</button>';
+    }).join(' ');
+    renderTaxTable(_taxMonths[0]);
+  });
+}
+function selectTaxMonth(i, btn) {
+  var bs = btn.parentNode.querySelectorAll('button'); for (var k = 0; k < bs.length; k++) bs[k].classList.remove('active');
+  btn.classList.add('active');
+  renderTaxTable(_taxMonths[i]);
+}
+function renderTaxTable(m) {
+  var chs = ['shopify', 'square', 'btob'];
+  var labels = { shopify: 'Shopify', square: 'Square', btob: 'BtoB卸' };
+  var head = '<tr><th>チャンネル</th><th>件数</th><th>税抜(8%)</th><th>税抜(10%)</th><th>消費税8%</th><th>消費税10%</th><th>送料</th><th>手数料</th><th>税込合計</th><th></th></tr>';
+  var tot = { count: 0, sales_8: 0, sales_10: 0, tax_8: 0, tax_10: 0, shipping: 0, fee: 0, total: 0 };
+  var rows = chs.map(function (ch) {
+    var c = (m.channels && m.channels[ch]) || { count: 0 };
+    var s = c.summary;
+    var zero = !c.count;
+    if (s) { tot.sales_8 += s.sales_8 || 0; tot.sales_10 += s.sales_10 || 0; tot.tax_8 += s.tax_8 || 0; tot.tax_10 += s.tax_10 || 0; tot.shipping += s.shipping || 0; tot.fee += s.fee || 0; tot.total += s.total || 0; }
+    tot.count += c.count || 0;
+    var cells = zero ? '<td>0</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td>'
+      : (s ? '<td>' + c.count + '</td><td>' + taxYen_(s.sales_8) + '</td><td>' + taxYen_(s.sales_10) + '</td><td>' + taxYen_(s.tax_8) + '</td><td>' + taxYen_(s.tax_10) + '</td><td>' + taxYen_(s.shipping) + '</td><td>' + taxYen_(s.fee) + '</td><td>' + taxYen_(s.total) + '</td>'
+        : '<td>' + c.count + '</td><td colspan="7" style="color:#999">(集計情報なし)</td>');
+    var dl = zero ? '–' : '<button onclick="downloadTaxCsv(\'' + m.month + '\',\'' + ch + '\')">CSV</button>';
+    return '<tr><td>' + labels[ch] + '</td>' + cells + '<td>' + dl + '</td></tr>';
+  }).join('');
+  var totalRow = '<tr style="font-weight:bold;background:#f5f5f5"><td>合計</td><td>' + tot.count + '</td><td>' + taxYen_(tot.sales_8) + '</td><td>' + taxYen_(tot.sales_10) + '</td><td>' + taxYen_(tot.tax_8) + '</td><td>' + taxYen_(tot.tax_10) + '</td><td>' + taxYen_(tot.shipping) + '</td><td>' + taxYen_(tot.fee) + '</td><td>' + taxYen_(tot.total) + '</td><td><button onclick="downloadAllTaxCsv(\'' + m.month + '\')">3つまとめてDL</button></td></tr>';
+  document.getElementById('taxTable').innerHTML = '<table class="tbl" border="1" cellpadding="6" style="border-collapse:collapse;width:100%">' + head + rows + totalRow + '</table>';
+}
+function downloadTaxCsv(month, channel) {
+  jsonpTax('get_tax_csv', { month: month, channel: channel }, function (res) {
+    if (!res || !res.ok) { alert('このチャンネルのCSVはありません: ' + channel); return; }
+    var blob = new Blob([res.content], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = res.filename || ('miyagen_' + channel + '_' + month + '.csv');
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); if (a.parentNode) a.parentNode.removeChild(a); }, 1000);
+  });
+}
+function downloadAllTaxCsv(month) {
+  var m = _taxMonths.filter(function (x) { return x.month === month; })[0];
+  ['shopify', 'square', 'btob'].forEach(function (ch, idx) {
+    var c = m && m.channels && m.channels[ch];
+    if (c && c.count) setTimeout(function () { downloadTaxCsv(month, ch); }, idx * 800);
+  });
 }
 </script>
 </body>
