@@ -756,7 +756,7 @@ td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius
 
   <div id="tTax" class="sec">
     <h2>税理士提出CSV</h2>
-    <p style="color:#666;font-size:13px">Mac の自動ツールが Drive に出力した月次CSVを表示・ダウンロードします（生成は毎月5日自動＋手動）。</p>
+    <p style="color:#666;font-size:13px">Mac の自動ツールが Drive に出力した月次CSVを表示・ダウンロードします（生成は毎月5日自動＋手動）。<br>表は主要項目のみ。手数料消費税・値引き(8%/10%)・入金日・顧客名・商品明細などの全項目はCSVに含まれます。</p>
     <div id="taxMonths" style="margin:8px 0"></div>
     <div id="taxTable"></div>
   </div>
@@ -4293,13 +4293,15 @@ function bkCard(b,isPast){
 
 // ===== 税理士CSV タブ(2026-06-03) =====
 var _taxMonths = [];
+var _taxCbSeq = 0;
 function jsonpTax(action, params, cb) {
-  var name = 'taxCb_' + Math.floor(Date.now()) + '_' + Math.floor(performance.now());
+  var name = 'taxCb_' + Date.now() + '_' + (++_taxCbSeq);
   var s = document.createElement('script');
-  window[name] = function (data) { try { cb(data); } finally { delete window[name]; if (s.parentNode) s.parentNode.removeChild(s); } };
+  function cleanup() { delete window[name]; if (s.parentNode) s.parentNode.removeChild(s); }
+  window[name] = function (data) { try { cb(data); } finally { cleanup(); } };
   var q = Object.keys(params || {}).map(function (k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');
   s.src = GAS_URL + '?action=' + action + '&callback=' + name + (q ? '&' + q : '') + '&_=' + Date.now();
-  s.onerror = function () { cb({ ok: false, error: 'network' }); };
+  s.onerror = function () { cleanup(); cb({ ok: false, error: 'network' }); };
   document.body.appendChild(s);
 }
 function taxYen_(n) { return (Number(n) || 0).toLocaleString('ja-JP'); }
