@@ -235,6 +235,7 @@ td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius
     <button class="tab" onclick="swTab(this,'t8');loadVoice()">YOUR VOICE</button>
     <button class="tab" onclick="swTab(this,'t9');loadContact()">Contact</button>
     <button class="tab" onclick="swTab(this,'tTax');loadTaxCsv()">税理士CSV</button>
+    <button class="tab" onclick="swTab(this,'tBackup');loadBackupStatus()">バックアップ状態</button>
   </div>
   <div id="tSNS" class="sec">
     <iframe id="sns-iframe" data-loaded="0" src="about:blank" style="width:100%;height:calc(100vh - 110px);border:none;display:block" allow="clipboard-read; clipboard-write"></iframe>
@@ -759,6 +760,11 @@ td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius
     <p style="color:#666;font-size:13px">Mac の自動ツールが Drive に出力した月次CSVを表示・ダウンロードします（生成は毎月5日自動＋手動）。<br>表は主要項目のみ。手数料消費税・値引き(8%/10%)・入金日・顧客名・商品明細などの全項目はCSVに含まれます。</p>
     <div id="taxMonths" style="margin:8px 0"></div>
     <div id="taxTable"></div>
+  </div>
+  <div id="tBackup" class="sec">
+    <h2>バックアップ状態</h2>
+    <div id="bk-status" style="font-size:14px;line-height:1.9">読み込み中…</div>
+    <p style="color:#888;font-size:12px;margin-top:14px">システム全体バックアップ（週次・日曜3時／Drive→NAS）。8日以上更新が無ければ「停止の疑い」。</p>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
@@ -4305,6 +4311,35 @@ function jsonpTax(action, params, cb) {
   document.body.appendChild(s);
 }
 function taxYen_(n) { return (Number(n) || 0).toLocaleString('ja-JP'); }
+
+// ===== バックアップ状態タブ(2026-06-04) =====
+function loadBackupStatus(){
+  var el = document.getElementById('bk-status');
+  el.innerHTML = '読み込み中…';
+  jsonpTax('get_backup_state', {}, function(res){
+    if(!res || !res.ok){ el.innerHTML = '<span style="color:#e63946">状態の取得に失敗しました（' + ((res&&res.error)||'error') + '）</span>'; return; }
+    el.innerHTML = renderBackupState(res.state);
+  });
+}
+// 純粋関数: 状態オブジェクト(またはnull)から表示HTMLを返す。鮮度はクライアント時刻で判定。
+function renderBackupState(s){
+  if(!s){ return '⚪ <b>未実行</b>（まだ記録がありません）'; }
+  var ageMs = Date.now() - Date.parse(s.finishedAt);
+  var ageDays = Math.floor(ageMs / 86400000);
+  var fresh = ageMs < 8*86400000;
+  var light = fresh
+    ? '🟢 <b style="color:#2a9d3f">稼働中</b>'
+    : '🔴 <b style="color:#e63946">停止の疑い</b>（最終バックアップが ' + ageDays + ' 日前）';
+  var result = s.overall === 'ok'
+    ? '✅ 全項目OK'
+    : (s.overall === 'warn'
+        ? '⚠️ 警告 ' + (s.warn||0) + ' 件'
+        : '❌ エラー ' + (s.error||0) + ' 件');
+  var note = (s.overall === 'warn')
+    ? '<div style="color:#888;font-size:12px">※ 業務データ(Sheets/Shopify)は設定待ちの可能性があります(rclone/スコープ)。</div>'
+    : '';
+  return light + '<br>最終実行: <b>' + (s.finishedAt||'-') + '</b>（' + (s.week||'-') + '）<br>結果: ' + result + note;
+}
 function loadTaxCsv() {
   document.getElementById('taxMonths').innerHTML = '読み込み中…';
   document.getElementById('taxTable').innerHTML = '';
