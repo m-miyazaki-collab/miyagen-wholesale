@@ -1527,8 +1527,57 @@ function onManualCompanyInput(){
     badge.classList.remove('show'); unreg.style.display='';
   }
 }
-function searchProductSuggest(el){}
-function addFreeTextItem(){}
+function searchProductSuggest(inputEl){
+  var box=document.getElementById('manual-search-results');
+  var q=inputEl.value.toLowerCase().trim();
+  box.innerHTML='';
+  if(!q)return;
+  var results=(P||[]).filter(function(p){
+    return (String(p.full_sku||'')+' '+String(p.name_jp||'')+' '+String(p.name_en||'')+' '+String(p.color_jp||'')+' '+String(p.product_code||'')).toLowerCase().indexOf(q)!==-1;
+  }).slice(0,12);
+  if(results.length===0)return;
+  box.style.cssText='position:absolute;top:100%;left:0;right:0;max-height:240px;overflow-y:auto;background:white;border:1px solid #ddd;border-radius:3px;z-index:50;box-shadow:0 4px 12px rgba(0,0,0,.1)';
+  results.forEach(function(p){
+    var badges='';
+    if(p.wholesale_ok!=='OK')badges+='<span style="background:#fee2e2;color:#b91c1c;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px">卸不可</span>';
+    if(p.is_discontinued===true)badges+='<span style="background:#e5e7eb;color:#555;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px">終売</span>';
+    if(p.btob_show!=='ON')badges+='<span style="background:#fef9c3;color:#92400e;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px">非表示(限定)</span>';
+    if((Number(p.wholesale_price)||0)<=0)badges+='<span style="background:#ffedd5;color:#9a3412;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px">価格未設定</span>';
+    var item=document.createElement('div');
+    item.style.cssText='padding:5px 8px;cursor:pointer;border-bottom:1px solid #eee;font-size:11px';
+    item.innerHTML='<strong>'+escH(p.name_jp||p.name_en||'')+'</strong>'+(p.color_jp?' / '+escH(p.color_jp):'')+(p.size?' / '+escH(p.size):'')+badges
+      +'<br><small style="color:#888">'+escH(p.full_sku||'')+'</small>';
+    item.onmouseover=function(){item.style.background='#dbeafe'};
+    item.onmouseout=function(){item.style.background='white'};
+    item.onclick=function(){addEditorItem(p);inputEl.value='';box.innerHTML='';};
+    box.appendChild(item);
+  });
+}
+function manualItemKey_(it){return String(it.full_sku||'')+'|'+String(it.color_jp||'')+'|'+String(it.size||'')}
+function addEditorItem(p){
+  var price=Number(p.wholesale_price)||0;
+  var newItem={
+    sku:String(p.product_code||''),          // = product_code（8桁・在庫照合キー）
+    full_sku:String(p.full_sku||''),          // 完全SKU
+    name:p.name_jp||'', name_en:p.name_en||'',
+    color:String(p.color_code||''),           // = color_code（GAS照合用）
+    color_jp:p.color_jp||p.color||'',
+    size:p.size||'',
+    qty:1,
+    unit_price:price, price_override:false, master_price:price,
+    taxRate:(Number(p.tax_rate)||0.1)
+  };
+  var key=manualItemKey_(newItem);
+  var existing=MANUAL_ITEMS.filter(function(it){return manualItemKey_(it)===key})[0];
+  if(existing){existing.qty+=1;}else{MANUAL_ITEMS.push(newItem);}
+  renderEditorItems(); recalcEditorTotals();
+}
+function addFreeTextItem(){
+  var name=prompt('項目名を入力（非商品/送料調整等）');
+  if(name===null||name.trim()==='')return;
+  MANUAL_ITEMS.push({sku:'',full_sku:'',name:name.trim(),name_en:'',color:'',color_jp:'',size:'',qty:1,unit_price:0,price_override:true,master_price:0,taxRate:0.1});
+  renderEditorItems(); recalcEditorTotals();
+}
 function recalcEditorTotals(){}
 function loadOrders(){
   loadShopList();
