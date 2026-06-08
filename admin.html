@@ -227,6 +227,7 @@ td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius
   <div class="tabs">
     <button class="tab" onclick="swTab(this,'tSNS');loadSNSTab()">SNS投稿</button>
     <button class="tab" onclick="swTab(this,'t3');loadOrders()">注文管理</button>
+    <button class="tab" onclick="swTab(this,'tManual');initManualEditor()">手動注文</button>
     <button class="tab" onclick="swTab(this,'tShops');loadShopsAdmin()">取引先</button>
     <button class="tab" onclick="swTab(this,'t4');loadInvoices()">請求管理</button>
     <button class="tab active" onclick="swTab(this,'t5')">EC出荷</button>
@@ -307,6 +308,17 @@ td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius
       <button class="btn" style="background:#e5e7eb;color:#333;margin-left:auto" onclick="loadOrders()">🔄 更新</button>
     </div>
     <div id="orders-list"><div style="text-align:center;color:#888;padding:30px;font-size:12px">注残データを読み込み中...</div></div>
+  </div>
+  <div id="tManual" class="sec">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <strong style="font-size:13px">手動注文</strong>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-primary" id="manual-new-btn" onclick="openManualEditor('new',null)">＋ 新規注文を作成</button>
+        <button class="btn" style="background:#e5e7eb;color:#333" onclick="loadDrafts()">🔄 下書き更新</button>
+      </div>
+    </div>
+    <div style="font-size:12px;font-weight:bold;color:#666;margin-bottom:6px">下書き一覧</div>
+    <div id="manual-drafts-list"><div style="text-align:center;color:#888;padding:20px;font-size:12px">下書きを読み込み中...</div></div>
   </div>
   <div class="modal-overlay" id="import-modal">
     <div class="modal">
@@ -1146,6 +1158,12 @@ function csvParse(line){var r=[];var c='';var q=false;for(var i=0;i<line.length;
 // ===== 注文管理 =====
 var ORDERS=[];
 var SHOP_LIST=[];
+// ===== 手動注文エディタ 状態 =====
+var MANUAL_ITEMS=[];
+var MANUAL_MODE='new';
+var MANUAL_EDIT_ID=null;
+var MANUAL_FLAGS={skip_stock:false,make_invoice:true,send_mail:false,shipping_override:null,allow_negative_stock:false};
+var MANUAL_COMPANY_REGISTERED=false;
 // [2026-05-28] 取引先管理 (ショップリスト) — 一覧 / 追加 / 編集 / 削除
 var SHOPS_ADMIN=[];
 function loadShopsAdmin(force){
@@ -1354,6 +1372,16 @@ function loadShopList(){
   s.onerror=function(){try{s.remove()}catch(e){}};
   document.body.appendChild(s);
 }
+// ===== 手動注文エディタ =====
+function initManualEditor(){
+  loadShopList();
+  if(!P||P.length===0){ try{loadProductsFromGAS()}catch(e){} }
+  buildManualCompanyList();
+  loadDrafts();
+}
+function buildManualCompanyList(){}
+function loadDrafts(){var el=document.getElementById('manual-drafts-list');if(el)el.innerHTML='<div style="color:#888;padding:20px;text-align:center;font-size:12px">（下書き機能は後続実装）</div>';}
+function openManualEditor(mode,data){alert('エディタは後続実装: mode='+mode);}
 function loadOrders(){
   loadShopList();
   var el=document.getElementById('orders-list');
