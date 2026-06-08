@@ -1659,15 +1659,15 @@ function renderEditorItems(){
     return '<div class="manual-item-row">'
       +'<div style="font-size:11px">'+disp+skuLine+'</div>'
       +'<div style="white-space:nowrap"><button class="btn" style="padding:0 6px" onclick="updateEditorItemQty('+idx+',-1)">−</button> '+it.qty+' <button class="btn" style="padding:0 6px" onclick="updateEditorItemQty('+idx+',1)">＋</button></div>'
-      +'<div><input type="number" value="'+(Number(it.unit_price)||0)+'" oninput="updateEditorItemPrice('+idx+',this.value)" style="width:80px;padding:2px 4px;border:1px solid #ddd;border-radius:3px;font-size:11px">'+resetLink+'</div>'
+      +'<div><input type="number" value="'+(Number(it.unit_price)||0)+'" oninput="updateEditorItemPrice('+idx+',this.value)" onchange="renderEditorItems()" style="width:80px;padding:2px 4px;border:1px solid #ddd;border-radius:3px;font-size:11px">'+resetLink+'</div>'
       +'<div>'+taxSel+'</div>'
-      +'<div style="text-align:right;font-size:11px">¥'+lineTotal.toLocaleString()+'</div>'
+      +'<div id="manual-lt-'+idx+'" style="text-align:right;font-size:11px">¥'+lineTotal.toLocaleString()+'</div>'
       +'<div><button class="btn" style="background:#fee2e2;color:#b91c1c;padding:0 6px" onclick="removeEditorItem('+idx+')">×</button></div>'
       +'</div>';
   }).join('');
 }
 function updateEditorItemQty(idx,delta){var it=MANUAL_ITEMS[idx];if(!it)return;it.qty=Math.max(1,(Number(it.qty)||1)+delta);renderEditorItems();recalcEditorTotals();}
-function updateEditorItemPrice(idx,val){var it=MANUAL_ITEMS[idx];if(!it)return;it.unit_price=Number(val)||0;it.price_override=true;recalcEditorTotals();renderEditorItems();}
+function updateEditorItemPrice(idx,val){var it=MANUAL_ITEMS[idx];if(!it)return;it.unit_price=Number(val)||0;it.price_override=true;/* [2026-06-09] oninput中は再描画せずフォーカス保持。行計のみidで部分更新+合計再計算。onchange(blur)でrenderEditorItemsが全再描画しリセットリンクを復元 */var lt=document.getElementById('manual-lt-'+idx);if(lt)lt.textContent='¥'+((Number(it.unit_price)||0)*(Number(it.qty)||0)).toLocaleString();recalcEditorTotals();}
 function updateEditorItemTax(idx,val){var it=MANUAL_ITEMS[idx];if(!it)return;it.taxRate=Number(val);recalcEditorTotals();}
 function resetItemToMaster(idx){var it=MANUAL_ITEMS[idx];if(!it)return;it.unit_price=Number(it.master_price)||0;it.price_override=false;renderEditorItems();recalcEditorTotals();}
 function removeEditorItem(idx){MANUAL_ITEMS.splice(idx,1);renderEditorItems();recalcEditorTotals();}
