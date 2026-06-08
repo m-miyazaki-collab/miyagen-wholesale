@@ -1677,6 +1677,99 @@ function showManualConfirm(onConfirm){
   };
   document.getElementById('manual-confirm-modal').classList.add('show');
 }
+function buildManualSlimPayload(){
+  var company=document.getElementById('manual-company').value.trim();
+  var items=MANUAL_ITEMS.map(function(it){
+    return {sku:String(it.sku||''),full_sku:String(it.full_sku||''),color:String(it.color||''),color_jp:String(it.color_jp||''),size:String(it.size||''),qty:Number(it.qty)||0,unit_price:Number(it.unit_price)||0,price_override:it.price_override===true,taxRate:Number(it.taxRate)||0.1,name:String(it.name||''),name_en:String(it.name_en||'')};
+  });
+  return {
+    company:company,
+    contact:document.getElementById('manual-contact').value.trim(),
+    email:document.getElementById('manual-email').value.trim(),
+    phone:document.getElementById('manual-phone').value.trim(),
+    taxId:document.getElementById('manual-taxid').value.trim(),
+    ship_name:document.getElementById('manual-ship-name').value.trim(),
+    ship_postal:document.getElementById('manual-ship-postal').value.trim(),
+    ship_pref:document.getElementById('manual-ship-pref').value.trim(),
+    ship_address:document.getElementById('manual-ship-address').value.trim(),
+    ship_phone:document.getElementById('manual-ship-phone').value.trim(),
+    items:items,
+    skip_stock:MANUAL_FLAGS.skip_stock===true,
+    make_invoice:MANUAL_FLAGS.make_invoice===true,
+    send_mail:MANUAL_FLAGS.send_mail===true,
+    allow_negative_stock:MANUAL_FLAGS.allow_negative_stock===true,
+    shipping_override:(MANUAL_FLAGS.shipping_override!=null?Number(MANUAL_FLAGS.shipping_override):null)
+  };
+}
+function postManualForm_(action,fields){
+  var form=document.createElement('form');form.method='POST';form.action=GAS_URL;form.target='manual-post-frame';
+  var all={action:action};for(var k in fields){all[k]=fields[k]}
+  for(var key in all){var input=document.createElement('input');input.type='hidden';input.name=key;input.value=all[key];form.appendChild(input)}
+  document.body.appendChild(form);form.submit();form.remove();
+}
+function newClientToken_(){return 'tok-'+Date.now()+'-'+Math.floor(Math.random()*1e6)}
+function pollManualResult(token,onDone){
+  var start=Date.now();
+  function tick(){
+    var cbName='__mr_cb_'+Date.now()+'_'+Math.floor(Math.random()*10000);
+    window[cbName]=function(res){
+      delete window[cbName];try{s.remove()}catch(e){}
+      if(res&&res.ready===true){onDone(res);return;}
+      if(Date.now()-start>60000){onDone({ready:false,timeout:true});loadOrders();return;}
+      setTimeout(tick,1500);
+    };
+    var s=document.createElement('script');
+    s.src=GAS_URL+'?action=get_manual_order_result&token='+encodeURIComponent(token)+'&callback='+cbName+'&_='+Date.now();
+    s.onerror=function(){delete window[cbName];try{s.remove()}catch(e){}if(Date.now()-start>60000){onDone({ready:false,timeout:true});loadOrders();}else{setTimeout(tick,1500)}};
+    document.body.appendChild(s);
+  }
+  setTimeout(tick,1200);
+}
+function submitManualOrder(){
+  if(MANUAL_ITEMS.length===0){alert('明細がありません');return;}
+  showManualConfirm(function(){
+    var payload=buildManualSlimPayload();
+    var token=newClientToken_();
+    var fields={payload:JSON.stringify(payload),clientToken:token};
+    if(MANUAL_MODE==='draft'&&MANUAL_EDIT_ID)fields.draftId=MANUAL_EDIT_ID;
+    postManualForm_('process_manual_order',fields);
+    closeManualEditor();
+    var statusEl=document.getElementById('manual-drafts-list');
+    if(statusEl)statusEl.insertAdjacentHTML('afterbegin','<div id="manual-pending" style="background:#eff6ff;color:#1e40af;padding:8px;border-radius:4px;font-size:12px;margin-bottom:8px">注文を確定中…結果を待っています</div>');
+    pollManualResult(token,function(res){
+      var pend=document.getElementById('manual-pending');if(pend)pend.remove();
+      if(res.ready&&res.status==='ok'){alert('確定しました: '+res.orderId+(res.warnings&&res.warnings.length?'\n警告:\n'+res.warnings.join('\n'):''));loadOrders();loadDrafts();loadProductsFromGAS();}
+      else if(res.ready&&res.status==='error'){alert('確定エラー: '+(res.message||res.code));}
+      else{alert('結果不明。注文一覧を確認してください。');}
+    });
+  });
+}
+function submitOrderEdit(){
+  if(MANUAL_ITEMS.length===0){alert('明細がありません');return;}
+  var payload=buildManualSlimPayload();
+  payload.editReason=(prompt('変更理由（請求済の場合は必須・任意なら空欄）')||'');
+  var token=newClientToken_();
+  postManualForm_('update_order_items',{orderId:MANUAL_EDIT_ID,payload:JSON.stringify(payload),clientToken:token});
+  closeManualEditor();
+  pollManualResult(token,function(res){
+    if(res.ready&&res.status==='ok'){alert('更新しました: '+res.orderId);loadOrders();}
+    else if(res.ready&&res.status==='error'){alert('更新エラー: '+(res.message||res.code));}
+    else{alert('結果不明。注文一覧を確認してください。');}
+  });
+}
+function saveManualDraft(){
+  var payload=buildManualSlimPayload();
+  payload.notes=''; payload.memo='';
+  var token=newClientToken_();
+  var fields={payload:JSON.stringify(payload),clientToken:token};
+  if(MANUAL_MODE==='draft'&&MANUAL_EDIT_ID)fields.draftId=MANUAL_EDIT_ID;
+  postManualForm_('save_draft',fields);
+  closeManualEditor();
+  pollManualResult(token,function(res){
+    if(res.ready&&res.status==='ok'){MANUAL_EDIT_ID=res.draftId;}
+    loadDrafts();
+  });
+}
 function loadOrders(){
   loadShopList();
   var el=document.getElementById('orders-list');
