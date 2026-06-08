@@ -198,6 +198,14 @@ td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius
 .bk-card-name{font-size:13px;font-weight:bold}
 .bk-card-detail{font-size:11px;color:#555;display:flex;gap:12px;flex-wrap:wrap}
 .bk-section-title{font-size:12px;font-weight:bold;color:#888;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid #e5e7eb}
+#manual-items .manual-item-row{display:grid;grid-template-columns:1fr 90px 110px 80px 90px 32px;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid #eee}
+.manual-mode-order #manual-editor-header{background:#fff7ed;border-bottom:2px solid #fb923c}
+#manual-company-badge{display:none;font-size:11px;font-weight:bold;color:#15803d;background:#dcfce7;padding:2px 8px;border-radius:10px;margin-left:8px}
+#manual-company-badge.show{display:inline-block}
+@media(max-width:600px){
+  #manual-items .manual-item-row{grid-template-columns:1fr 1fr;grid-auto-rows:auto;gap:4px}
+  #manual-editor-modal .modal{max-width:96vw;width:96vw}
+}
 @media print{
   /* [2026-05-28 v2] overlay は #wrap 内にネストされているため body > * セレクタは不適。
      visibility で全部隠してから .invoice-modal-overlay の chain だけ表示、
@@ -320,6 +328,62 @@ td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius
     <div style="font-size:12px;font-weight:bold;color:#666;margin-bottom:6px">下書き一覧</div>
     <div id="manual-drafts-list"><div style="text-align:center;color:#888;padding:20px;font-size:12px">下書きを読み込み中...</div></div>
   </div>
+  <div class="modal-overlay" id="manual-editor-modal">
+    <div class="modal" style="max-width:720px;max-height:92vh;overflow-y:auto">
+      <div class="modal-header" id="manual-editor-header">
+        <h3 id="manual-editor-title">新規注文を作成</h3>
+        <button class="modal-close" onclick="closeManualEditor()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:10px">
+          <label style="font-size:12px;font-weight:bold">取引先</label>
+          <input type="text" id="manual-company" list="manual-company-list" autocomplete="off" oninput="onManualCompanyInput()" style="padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:12px;width:60%">
+          <datalist id="manual-company-list"></datalist>
+          <span id="manual-company-badge">✓ 登録済</span>
+        </div>
+        <div id="manual-unreg-fields" style="display:none;border:1px dashed #fbbf24;border-radius:6px;padding:8px;margin-bottom:10px;background:#fffbeb">
+          <div style="font-size:11px;color:#92400e;margin-bottom:6px">未登録取引先 — 手入力</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <input id="manual-contact" placeholder="担当者" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px">
+            <input id="manual-email" placeholder="メール" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px">
+            <input id="manual-phone" placeholder="電話" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px">
+            <input id="manual-taxid" placeholder="インボイス番号 (T+13桁)" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px">
+          </div>
+          <div style="font-size:11px;font-weight:bold;color:#92400e;margin:8px 0 4px">配送先</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <input id="manual-ship-name" placeholder="宛名" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px">
+            <input id="manual-ship-postal" placeholder="郵便番号" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px">
+            <input id="manual-ship-pref" placeholder="都道府県" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px">
+            <input id="manual-ship-address" placeholder="住所" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px">
+            <input id="manual-ship-phone" placeholder="配送先電話" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px">
+          </div>
+        </div>
+        <div style="margin-bottom:8px">
+          <label style="font-size:12px;font-weight:bold;display:block;margin-bottom:4px">商品を追加</label>
+          <div style="position:relative">
+            <input type="text" id="manual-product-search" placeholder="SKU / 商品名 / 色 で検索" oninput="searchProductSuggest(this)" autocomplete="off" style="padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:12px;width:100%">
+            <div id="manual-search-results"></div>
+          </div>
+          <button type="button" class="btn" onclick="addFreeTextItem()" style="background:#f3f4f6;color:#333;border:1px solid #ddd;padding:4px 10px;font-size:11px;margin-top:4px">＋ フリーテキスト行</button>
+        </div>
+        <div id="manual-items"></div>
+        <div style="margin-top:10px;display:grid;grid-template-columns:1fr auto;gap:4px;font-size:12px">
+          <div>小計</div><div id="manual-total-subtotal" style="text-align:right">¥0</div>
+          <div>送料 <input type="number" id="manual-shipping" oninput="MANUAL_FLAGS.shipping_override=this.value===''?null:Number(this.value);recalcEditorTotals()" style="width:80px;padding:2px 6px;border:1px solid #ddd;border-radius:4px;font-size:11px"></div><div id="manual-total-shipping" style="text-align:right">¥0</div>
+          <div>消費税 10%</div><div id="manual-total-tax10" style="text-align:right">¥0</div>
+          <div>消費税 8%</div><div id="manual-total-tax8" style="text-align:right">¥0</div>
+          <div style="font-weight:bold">合計</div><div id="manual-total-total" style="text-align:right;font-weight:bold">¥0</div>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:12px">
+          <label><input type="checkbox" id="manual-toggle-stock" checked onchange="MANUAL_FLAGS.skip_stock=!this.checked"> 在庫を減らす</label>
+          <label><input type="checkbox" id="manual-toggle-invoice" checked onchange="MANUAL_FLAGS.make_invoice=this.checked"> 請求書を作成する</label>
+          <label><input type="checkbox" id="manual-toggle-mail" onchange="MANUAL_FLAGS.send_mail=this.checked"> 確認メールを送る</label>
+        </div>
+      </div>
+      <div class="modal-footer" id="manual-editor-footer"></div>
+    </div>
+  </div>
+  <iframe name="manual-post-frame" id="manual-post-frame" style="display:none"></iframe>
   <div class="modal-overlay" id="import-modal">
     <div class="modal">
       <div class="modal-header"><h3>📤 Excel注文取込</h3><button class="modal-close" onclick="closeImportModal()">&times;</button></div>
@@ -1382,6 +1446,11 @@ function initManualEditor(){
 function buildManualCompanyList(){}
 function loadDrafts(){var el=document.getElementById('manual-drafts-list');if(el)el.innerHTML='<div style="color:#888;padding:20px;text-align:center;font-size:12px">（下書き機能は後続実装）</div>';}
 function openManualEditor(mode,data){alert('エディタは後続実装: mode='+mode);}
+function closeManualEditor(){document.getElementById('manual-editor-modal').classList.remove('show','manual-mode-order')}
+function onManualCompanyInput(){}
+function searchProductSuggest(el){}
+function addFreeTextItem(){}
+function recalcEditorTotals(){}
 function loadOrders(){
   loadShopList();
   var el=document.getElementById('orders-list');
