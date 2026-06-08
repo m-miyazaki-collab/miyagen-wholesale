@@ -1431,6 +1431,7 @@ function loadShopList(){
   window.shopListCb=function(data){
     try{s.remove()}catch(e){}delete window.shopListCb;
     if(data&&data.shops)SHOP_LIST=data.shops;
+    try{buildManualCompanyList()}catch(e){}
   };
   s.src=GAS_URL+'?action=get_shop_list&callback=shopListCb&_='+Date.now();
   s.onerror=function(){try{s.remove()}catch(e){}};
@@ -1443,7 +1444,11 @@ function initManualEditor(){
   buildManualCompanyList();
   loadDrafts();
 }
-function buildManualCompanyList(){}
+function buildManualCompanyList(){
+  var dl=document.getElementById('manual-company-list');
+  if(!dl)return;
+  dl.innerHTML=(SHOP_LIST||[]).map(function(sh){return '<option value="'+escH(sh.company)+'">'}).join('');
+}
 function loadDrafts(){var el=document.getElementById('manual-drafts-list');if(el)el.innerHTML='<div style="color:#888;padding:20px;text-align:center;font-size:12px">（下書き機能は後続実装）</div>';}
 function openManualEditor(mode,data){
   MANUAL_MODE=mode; MANUAL_ITEMS=[]; MANUAL_EDIT_ID=null;
@@ -1505,7 +1510,23 @@ function fillEditorFromData_(d){
   if(MANUAL_FLAGS.shipping_override!=null)document.getElementById('manual-shipping').value=MANUAL_FLAGS.shipping_override;
   onManualCompanyInput();
 }
-function onManualCompanyInput(){}
+function onManualCompanyInput(){
+  var name=document.getElementById('manual-company').value.trim();
+  var hit=(SHOP_LIST||[]).filter(function(c){return c.company===name})[0];
+  var badge=document.getElementById('manual-company-badge');
+  var unreg=document.getElementById('manual-unreg-fields');
+  if(hit){
+    MANUAL_COMPANY_REGISTERED=true;
+    badge.classList.add('show'); unreg.style.display='none';
+    if(hit.contact)document.getElementById('manual-contact').value=hit.contact;
+    var em=hit.email||hit.billingEmail; if(em)document.getElementById('manual-email').value=em;
+    if(hit.phone)document.getElementById('manual-phone').value=hit.phone;
+    if(hit.taxId)document.getElementById('manual-taxid').value=hit.taxId;
+  }else{
+    MANUAL_COMPANY_REGISTERED=false;
+    badge.classList.remove('show'); unreg.style.display='';
+  }
+}
 function searchProductSuggest(el){}
 function addFreeTextItem(){}
 function recalcEditorTotals(){}
