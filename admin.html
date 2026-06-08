@@ -383,6 +383,16 @@ td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius
       <div class="modal-footer" id="manual-editor-footer"></div>
     </div>
   </div>
+  <div class="modal-overlay" id="manual-confirm-modal">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-header"><h3>確定の確認</h3><button class="modal-close" onclick="document.getElementById('manual-confirm-modal').classList.remove('show')">&times;</button></div>
+      <div class="modal-body" id="manual-confirm-summary"></div>
+      <div class="modal-footer">
+        <button class="btn" style="background:#e5e7eb;color:#333" onclick="document.getElementById('manual-confirm-modal').classList.remove('show')">修正に戻る</button>
+        <button class="btn btn-primary" id="manual-confirm-go-btn">このまま確定する</button>
+      </div>
+    </div>
+  </div>
   <iframe name="manual-post-frame" id="manual-post-frame" style="display:none"></iframe>
   <div class="modal-overlay" id="import-modal">
     <div class="modal">
@@ -1622,6 +1632,50 @@ function recalcEditorTotals(){
   set('manual-total-tax10',t.tax10);
   set('manual-total-tax8',t.tax8);
   set('manual-total-total',total);
+}
+function showManualConfirm(onConfirm){
+  var company=document.getElementById('manual-company').value.trim();
+  var email=document.getElementById('manual-email').value.trim();
+  var t=computeTaxTotalsJS_(MANUAL_ITEMS);
+  var shipping=(MANUAL_FLAGS.shipping_override!=null?Number(MANUAL_FLAGS.shipping_override):(t.subtotal<30000?1000:0));
+  var total=t.subtotal+shipping+t.tax10+t.tax8;
+  var hasZero=MANUAL_ITEMS.some(function(it){return (Number(it.unit_price)||0)===0&&it.sku;});
+  var taxid=document.getElementById('manual-taxid').value.trim();
+  var shortages=[];
+  if(!MANUAL_FLAGS.skip_stock){
+    MANUAL_ITEMS.forEach(function(it){
+      if(!it.sku)return;
+      var p=(P||[]).filter(function(x){return String(x.full_sku||'')===String(it.full_sku||'')})[0];
+      if(p&&(Number(p.stock)||0)<(Number(it.qty)||0))shortages.push({name:(it.name_en||it.name),stock:Number(p.stock)||0,qty:it.qty});
+    });
+  }
+  var warns=[];
+  if(hasZero&&MANUAL_FLAGS.make_invoice&&MANUAL_FLAGS.send_mail)warns.push('0円商品を含む請求書をメール送信します');
+  if(!MANUAL_COMPANY_REGISTERED&&MANUAL_FLAGS.make_invoice&&!taxid)warns.push('未登録取引先＋請求書作成＋インボイス番号未入力');
+  if(!MANUAL_COMPANY_REGISTERED&&MANUAL_FLAGS.send_mail)warns.push('未登録宛先へのメール送信（送信先: '+escH(email||'未入力')+'）');
+  if(shortages.length>0){warns.push('在庫不足品あり（残数より多い数量）');}
+  var html='<div style="font-size:12px;line-height:1.8">'
+    +'会社: <strong>'+escH(company||'(未入力)')+'</strong><br>'
+    +'送信先メール: '+escH(email||'(なし)')+'<br>'
+    +'合計: <strong>¥'+total.toLocaleString()+'</strong><br>'
+    +'在庫: '+(MANUAL_FLAGS.skip_stock?'減らさない':'減らす')+' / 請求書: '+(MANUAL_FLAGS.make_invoice?'作成':'なし')+' / メール: '+(MANUAL_FLAGS.send_mail?'送る':'送らない')
+    +'</div>';
+  warns.forEach(function(w){html+='<div style="background:#fef9c3;color:#92400e;border:1px solid #fde047;border-radius:4px;padding:6px 8px;margin-top:6px;font-size:11px">⚠ '+escH(w)+'</div>'});
+  if(shortages.length>0){
+    html+='<label style="display:block;margin-top:8px;font-size:11px;color:#b91c1c"><input type="checkbox" id="manual-confirm-allowneg"> 在庫不足でも0クランプで続行する（allow_negative_stock）</label>';
+  }
+  document.getElementById('manual-confirm-summary').innerHTML=html;
+  var goBtn=document.getElementById('manual-confirm-go-btn');
+  goBtn.onclick=function(){
+    if(shortages.length>0){
+      var cb=document.getElementById('manual-confirm-allowneg');
+      if(!cb||!cb.checked){alert('在庫不足の続行にはチェックが必要です');return;}
+      MANUAL_FLAGS.allow_negative_stock=true;
+    }
+    document.getElementById('manual-confirm-modal').classList.remove('show');
+    onConfirm();
+  };
+  document.getElementById('manual-confirm-modal').classList.add('show');
 }
 function loadOrders(){
   loadShopList();
