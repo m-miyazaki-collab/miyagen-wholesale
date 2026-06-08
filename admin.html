@@ -1578,7 +1578,51 @@ function addFreeTextItem(){
   MANUAL_ITEMS.push({sku:'',full_sku:'',name:name.trim(),name_en:'',color:'',color_jp:'',size:'',qty:1,unit_price:0,price_override:true,master_price:0,taxRate:0.1});
   renderEditorItems(); recalcEditorTotals();
 }
-function recalcEditorTotals(){}
+function computeTaxTotalsJS_(items){
+  var subtotal=0,tax10=0,tax8=0;
+  (items||[]).forEach(function(it){
+    var lineTotal=(Number(it.unit_price)||0)*(Number(it.qty)||0);
+    subtotal+=lineTotal;
+    if(Number(it.taxRate)===0.08){tax8+=Math.floor(lineTotal*0.08);}
+    else{tax10+=Math.floor(lineTotal*(Number(it.taxRate)||0.1));}
+  });
+  return {subtotal:subtotal,tax10:tax10,tax8:tax8};
+}
+function renderEditorItems(){
+  var c=document.getElementById('manual-items'); if(!c)return;
+  if(MANUAL_ITEMS.length===0){c.innerHTML='<div style="color:#888;font-size:11px;padding:8px">明細がありません。上の検索から商品を追加してください。</div>';return;}
+  c.innerHTML=MANUAL_ITEMS.map(function(it,idx){
+    var disp=escH(it.name_en||it.name||'')+(it.color_jp&&it.color_jp!=='-'?' / '+escH(it.color_jp):'')+(it.size&&it.size!=='-'?' / '+escH(it.size):'');
+    var skuLine=it.full_sku?'<br><small style="color:#888">'+escH(it.full_sku)+'</small>':'';
+    var resetLink=it.price_override&&it.sku?'<a href="#" onclick="resetItemToMaster('+idx+');return false" style="font-size:9px;color:#2563eb;margin-left:4px">マスタ価格に戻す</a>':'';
+    var taxSel='<select onchange="updateEditorItemTax('+idx+',this.value)" style="font-size:11px;padding:2px"><option value="0.1"'+(Number(it.taxRate)===0.08?'':' selected')+'>10%</option><option value="0.08"'+(Number(it.taxRate)===0.08?' selected':'')+'>8%</option></select>';
+    var lineTotal=(Number(it.unit_price)||0)*(Number(it.qty)||0);
+    return '<div class="manual-item-row">'
+      +'<div style="font-size:11px">'+disp+skuLine+'</div>'
+      +'<div style="white-space:nowrap"><button class="btn" style="padding:0 6px" onclick="updateEditorItemQty('+idx+',-1)">−</button> '+it.qty+' <button class="btn" style="padding:0 6px" onclick="updateEditorItemQty('+idx+',1)">＋</button></div>'
+      +'<div><input type="number" value="'+(Number(it.unit_price)||0)+'" oninput="updateEditorItemPrice('+idx+',this.value)" style="width:80px;padding:2px 4px;border:1px solid #ddd;border-radius:3px;font-size:11px">'+resetLink+'</div>'
+      +'<div>'+taxSel+'</div>'
+      +'<div style="text-align:right;font-size:11px">¥'+lineTotal.toLocaleString()+'</div>'
+      +'<div><button class="btn" style="background:#fee2e2;color:#b91c1c;padding:0 6px" onclick="removeEditorItem('+idx+')">×</button></div>'
+      +'</div>';
+  }).join('');
+}
+function updateEditorItemQty(idx,delta){var it=MANUAL_ITEMS[idx];if(!it)return;it.qty=Math.max(1,(Number(it.qty)||1)+delta);renderEditorItems();recalcEditorTotals();}
+function updateEditorItemPrice(idx,val){var it=MANUAL_ITEMS[idx];if(!it)return;it.unit_price=Number(val)||0;it.price_override=true;recalcEditorTotals();renderEditorItems();}
+function updateEditorItemTax(idx,val){var it=MANUAL_ITEMS[idx];if(!it)return;it.taxRate=Number(val);recalcEditorTotals();}
+function resetItemToMaster(idx){var it=MANUAL_ITEMS[idx];if(!it)return;it.unit_price=Number(it.master_price)||0;it.price_override=false;renderEditorItems();recalcEditorTotals();}
+function removeEditorItem(idx){MANUAL_ITEMS.splice(idx,1);renderEditorItems();recalcEditorTotals();}
+function recalcEditorTotals(){
+  var t=computeTaxTotalsJS_(MANUAL_ITEMS);
+  var shipping=(MANUAL_FLAGS.shipping_override!=null?Number(MANUAL_FLAGS.shipping_override):(t.subtotal<30000?1000:0));
+  var total=t.subtotal+shipping+t.tax10+t.tax8;
+  var set=function(id,v){var e=document.getElementById(id);if(e)e.textContent='¥'+(v||0).toLocaleString()};
+  set('manual-total-subtotal',t.subtotal);
+  set('manual-total-shipping',shipping);
+  set('manual-total-tax10',t.tax10);
+  set('manual-total-tax8',t.tax8);
+  set('manual-total-total',total);
+}
 function loadOrders(){
   loadShopList();
   var el=document.getElementById('orders-list');
