@@ -1887,6 +1887,7 @@ function renderOrders(){
       actions='<button class="btn-revert" onclick="revertOrder(\''+escH(o.orderId)+'\')">未処理に戻す</button>';
     }
     actions+=' <button class="btn-revert" onclick="exportMfCsv(\''+escH(o.orderId)+'\')" style="background:#f0f9ff;border-color:#bae6fd;color:#0369a1">MF CSV</button>';
+    actions+=' <button class="btn-revert" onclick="openOrderEdit(\''+escH(o.orderId)+'\')" style="background:#f0fdf4;border-color:#bbf7d0;color:#15803d">明細編集</button>';
     // 取引先が未設定かどうか判定
     var noCompany=!o.company||o.company==='（Excel注文）'||o.company==='(Excel注文)';
     var companyHtml='';
@@ -1916,6 +1917,20 @@ function renderOrders(){
       +'</div>';
   }).join('');
   el.innerHTML=html;
+}
+function openOrderEdit(orderId){
+  var cbName='__ordd_cb_'+Date.now();
+  window[cbName]=function(res){
+    delete window[cbName];try{s.remove()}catch(e){}
+    if(!res||res.status!=='ok'){alert('注文の取得に失敗: '+(res?(res.message||res.code):'通信エラー'));return;}
+    if(res.editableItems===false){alert('この注文は明細編集できません（明細データがありません）。取引先のみ編集可能です。');}
+    if(res.priceWarning===true){alert('注意: 単価がマスタ現価のため当時価格と異なる可能性があります。確認してください。');}
+    openManualEditor('order',res);
+  };
+  var s=document.createElement('script');
+  s.src=GAS_URL+'?action=get_order_detail&orderId='+encodeURIComponent(orderId)+'&callback='+cbName+'&_='+Date.now();
+  s.onerror=function(){delete window[cbName];try{s.remove()}catch(e){}alert('通信エラー')};
+  document.body.appendChild(s);
 }
 function markShipped(orderId){
   var inp=document.getElementById('trk_'+orderId);
