@@ -1445,8 +1445,66 @@ function initManualEditor(){
 }
 function buildManualCompanyList(){}
 function loadDrafts(){var el=document.getElementById('manual-drafts-list');if(el)el.innerHTML='<div style="color:#888;padding:20px;text-align:center;font-size:12px">（下書き機能は後続実装）</div>';}
-function openManualEditor(mode,data){alert('エディタは後続実装: mode='+mode);}
+function openManualEditor(mode,data){
+  MANUAL_MODE=mode; MANUAL_ITEMS=[]; MANUAL_EDIT_ID=null;
+  MANUAL_FLAGS={skip_stock:false,make_invoice:true,send_mail:false,shipping_override:null,allow_negative_stock:false};
+  MANUAL_COMPANY_REGISTERED=false;
+  var ov=document.getElementById('manual-editor-modal');
+  var title=document.getElementById('manual-editor-title');
+  var footer=document.getElementById('manual-editor-footer');
+  ov.classList.remove('manual-mode-order');
+  document.getElementById('manual-company').value='';
+  ['manual-contact','manual-email','manual-phone','manual-taxid','manual-ship-name','manual-ship-postal','manual-ship-pref','manual-ship-address','manual-ship-phone'].forEach(function(id){document.getElementById(id).value=''});
+  document.getElementById('manual-shipping').value='';
+  document.getElementById('manual-company-badge').classList.remove('show');
+  document.getElementById('manual-unreg-fields').style.display='';
+  if(mode==='new'){
+    title.textContent='新規注文を作成';
+    footer.innerHTML='<button class="btn" style="background:#e5e7eb;color:#333" onclick="closeManualEditor()">破棄</button>'
+      +'<button class="btn" style="background:#f3f4f6;color:#333;border:1px solid #ddd" onclick="saveManualDraft()">下書き保存</button>'
+      +'<button class="btn btn-primary" onclick="submitManualOrder()">確定する</button>';
+  }else if(mode==='draft'){
+    MANUAL_EDIT_ID=data.draftId;
+    title.textContent='下書きを編集';
+    footer.innerHTML='<button class="btn" style="background:#e5e7eb;color:#333" onclick="closeManualEditor()">破棄</button>'
+      +'<button class="btn" style="background:#f3f4f6;color:#333;border:1px solid #ddd" onclick="saveManualDraft()">下書きを更新</button>'
+      +'<button class="btn btn-primary" onclick="submitManualOrder()">確定する</button>';
+    fillEditorFromData_(data);
+  }else if(mode==='order'){
+    MANUAL_EDIT_ID=data.orderId;
+    title.textContent='注文 '+data.orderId+' を編集';
+    ov.classList.add('manual-mode-order');
+    footer.innerHTML='<button class="btn" style="background:#e5e7eb;color:#333" onclick="closeManualEditor()">破棄</button>'
+      +'<button class="btn btn-primary" onclick="submitOrderEdit()">更新して保存</button>';
+    fillEditorFromData_(data);
+  }
+  renderEditorItems(); recalcEditorTotals();
+  ov.classList.add('show');
+}
 function closeManualEditor(){document.getElementById('manual-editor-modal').classList.remove('show','manual-mode-order')}
+function fillEditorFromData_(d){
+  document.getElementById('manual-company').value=d.company||'';
+  document.getElementById('manual-contact').value=d.contact||'';
+  document.getElementById('manual-email').value=d.email||'';
+  document.getElementById('manual-phone').value=d.phone||'';
+  document.getElementById('manual-taxid').value=d.taxId||'';
+  document.getElementById('manual-ship-name').value=d.ship_name||'';
+  document.getElementById('manual-ship-postal').value=d.ship_postal||'';
+  document.getElementById('manual-ship-pref').value=d.ship_pref||'';
+  document.getElementById('manual-ship-address').value=d.ship_address||'';
+  document.getElementById('manual-ship-phone').value=d.ship_phone||'';
+  MANUAL_ITEMS=(d.items||[]).map(function(it){return it});
+  var f=d.flags||{};
+  MANUAL_FLAGS.skip_stock=f.skip_stock===true;
+  MANUAL_FLAGS.make_invoice=f.make_invoice!==false;
+  MANUAL_FLAGS.send_mail=f.send_mail===true;
+  MANUAL_FLAGS.shipping_override=(f.shipping_override!=null?Number(f.shipping_override):null);
+  document.getElementById('manual-toggle-stock').checked=!MANUAL_FLAGS.skip_stock;
+  document.getElementById('manual-toggle-invoice').checked=MANUAL_FLAGS.make_invoice;
+  document.getElementById('manual-toggle-mail').checked=MANUAL_FLAGS.send_mail;
+  if(MANUAL_FLAGS.shipping_override!=null)document.getElementById('manual-shipping').value=MANUAL_FLAGS.shipping_override;
+  onManualCompanyInput();
+}
 function onManualCompanyInput(){}
 function searchProductSuggest(el){}
 function addFreeTextItem(){}
