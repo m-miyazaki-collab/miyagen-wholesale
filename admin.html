@@ -1801,7 +1801,12 @@ function submitOrderEdit(){
   postManualForm_('update_order_items',{orderId:MANUAL_EDIT_ID,payload:JSON.stringify(payload),clientToken:token});
   closeManualEditor();
   pollManualResult(token,function(res){
-    if(res.ready&&res.status==='ok'){alert('更新しました: '+res.orderId);loadOrders();}
+    if(res.ready&&res.status==='ok'){
+      /* [2026-06-09] 明細編集では在庫を自動調整しない。数量変化分(stock_delta)を警告表示し、在庫はキャンセル→作り直しで調整する運用を促す */
+      var sd=res.stock_delta;var msg='更新しました: '+res.orderId;
+      if(sd&&Array.isArray(sd)&&sd.length){msg+='\n\n⚠ 在庫は自動調整されていません。数量が変わった商品:';sd.forEach(function(d){var lbl=(d.sku||'')+((d.color&&d.color!=='-')?' / '+d.color:'')+((d.size&&d.size!=='-')?' / '+d.size:'');msg+='\n  '+lbl+' : '+(d.delta>0?'+':'')+d.delta;});msg+='\n\n在庫を動かす場合は注文をキャンセル(在庫戻し)→作り直してください。';}
+      alert(msg);loadOrders();
+    }
     else if(res.ready&&res.status==='error'){alert('更新エラー: '+(res.message||res.code));}
     else{alert('結果不明。注文一覧を確認してください。');}
   });
