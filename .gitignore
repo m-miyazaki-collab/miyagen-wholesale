@@ -1,0 +1,10 @@
+
+# === MIYAGEN GitHub バックアップ: 秘密ファイル除外(自動push hook対策 2026-06-07) ===
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.dev.vars
+*.bak
+.clasprc.json
