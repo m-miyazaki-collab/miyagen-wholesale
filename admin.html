@@ -407,6 +407,20 @@ td input[type=number]{width:60px;padding:3px;border:1px solid #ddd;border-radius
   </div>
   <!-- [2026-05-28] 取引先 (ショップリスト) 管理タブ -->
   <div id="tShops" class="sec">
+    <!-- [2026-06-11] 卸ページ共通パスワード管理 -->
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <strong style="font-size:13px">🔑 卸ページパスワード</strong>
+        <span id="portal-pw-display" style="font-family:monospace;font-size:13px;color:#334;letter-spacing:1px">••••••••</span>
+        <button class="btn" onclick="togglePortalPw()" id="portal-pw-toggle" style="padding:3px 10px;font-size:11px;background:#e2e8f0">表示</button>
+        <input type="password" id="portal-pw-new" placeholder="新しいパスワード(8文字以上)" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;width:180px">
+        <input type="password" id="portal-pw-new2" placeholder="確認のためもう一度" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;width:160px">
+        <button class="btn" onclick="savePortalPw()" id="portal-pw-save" style="padding:5px 12px;font-size:12px;background:#0e7c5a;color:#fff;font-weight:600">変更する</button>
+        <span id="portal-pw-status" style="font-size:11px;color:#666"></span>
+        <button class="btn" onclick="copyPortalNotice()" id="portal-pw-copy" style="padding:3px 10px;font-size:11px;background:#334fb4;color:#fff;display:none">📋 取引先周知用テキストをコピー</button>
+      </div>
+      <div style="font-size:10px;color:#888;margin-top:6px">全取引先共通。取引終了時はパスワード変更ではなく、下の一覧からその取引先を削除すればログイン不可になります。</div>
+    </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
       <h2 style="font-size:16px;margin:0">👥 取引先管理</h2>
       <span id="shops-count" style="font-size:12px;color:#666"></span>
@@ -1433,6 +1447,52 @@ function deleteShop(rowIndex,companyName){
   s.src=GAS_URL+'?action=delete_shop&payload='+encodeURIComponent(JSON.stringify({row_index:rowIndex}))+'&callback=shopDelCb&_='+Date.now();
   s.onerror=function(){try{s.remove()}catch(e){};alert('通信エラー')};
   document.body.appendChild(s);
+}
+
+// === [2026-06-11] 卸ページパスワード管理 ===
+var PORTAL_PW_CACHE='';
+function fetchPortalPw(cb){
+  var cbName='gppCb_'+Date.now();var s=document.createElement('script');
+  window[cbName]=function(d){try{s.remove()}catch(e){}delete window[cbName];cb(d&&d.status==='ok'?String(d.password||''):null)};
+  s.onerror=function(){try{s.remove()}catch(e){}delete window[cbName];cb(null)};
+  s.src=GAS_URL+'?action=get_portal_password&callback='+cbName+'&_='+Date.now();
+  document.body.appendChild(s);
+}
+function togglePortalPw(){
+  var disp=document.getElementById('portal-pw-display');var btn=document.getElementById('portal-pw-toggle');
+  if(btn.textContent==='隠す'){disp.textContent='••••••••';btn.textContent='表示';return}
+  btn.disabled=true;btn.textContent='取得中...';
+  fetchPortalPw(function(pw){btn.disabled=false;
+    if(pw===null){btn.textContent='表示';alert('取得に失敗しました');return}
+    PORTAL_PW_CACHE=pw;disp.textContent=pw||'(未設定)';btn.textContent='隠す';
+    document.getElementById('portal-pw-copy').style.display=pw?'':'none';});
+}
+function savePortalPw(){
+  var pw=document.getElementById('portal-pw-new').value||'';
+  var pw2=document.getElementById('portal-pw-new2').value||'';
+  var st=document.getElementById('portal-pw-status');
+  if(pw.length<8){st.textContent='8文字以上にしてください';st.style.color='#b91c1c';return}
+  if(pw!==pw2){st.textContent='確認入力が一致しません';st.style.color='#b91c1c';return}
+  if(!confirm('卸ページのパスワードを変更します。変更後は取引先への周知が必要です。よろしいですか？'))return;
+  st.textContent='変更中...';st.style.color='#666';
+  var form=document.createElement('form');form.method='POST';form.action=GAS_URL;form.target='portal-pw-frame';form.style.display='none';
+  [['action','set_portal_password'],['password',pw]].forEach(function(kv){var i=document.createElement('input');i.name=kv[0];i.value=kv[1];form.appendChild(i)});
+  var fr=document.getElementById('portal-pw-frame');
+  if(!fr){fr=document.createElement('iframe');fr.name='portal-pw-frame';fr.id='portal-pw-frame';fr.style.display='none';document.body.appendChild(fr)}
+  document.body.appendChild(form);form.submit();setTimeout(function(){try{form.remove()}catch(e){}},2000);
+  // POSTレスポンスはiframeで取れないため、読み返しで反映確認
+  setTimeout(function(){fetchPortalPw(function(now){
+    if(now===pw){st.textContent='✅ 変更しました。取引先への周知を忘れずに';st.style.color='#0e7c5a';
+      PORTAL_PW_CACHE=pw;document.getElementById('portal-pw-new').value='';document.getElementById('portal-pw-new2').value='';
+      document.getElementById('portal-pw-display').textContent=pw;document.getElementById('portal-pw-toggle').textContent='隠す';
+      document.getElementById('portal-pw-copy').style.display='';}
+    else{st.textContent='⚠️ 反映を確認できませんでした。「表示」で現在値を確認してください';st.style.color='#b45309'}
+  })},2500);
+}
+function copyPortalNotice(){
+  var pw=PORTAL_PW_CACHE;if(!pw){alert('先に「表示」でパスワードを取得してください');return}
+  var text='いつもお世話になっております。MIYAGEN宮崎です。\n\n卸注文ページのログイン方法が変わりました。\n今後は以下でログインできます（認証コードの受け取りは不要になりました）。\n\n▼卸注文ページ\nhttps://miyagen-wholesale.pages.dev/\n\n・メールアドレス: ご登録のメールアドレス\n・パスワード: '+pw+'\n\nパスワードがわからなくなった場合は、ログイン画面の「メール認証でログイン」もご利用いただけます。\nご不明点は宮崎までお気軽にご連絡ください。';
+  navigator.clipboard.writeText(text).then(function(){alert('周知用テキストをコピーしました')},function(){prompt('コピーできませんでした。以下を選択してコピーしてください', text)});
 }
 
 function loadShopList(){
