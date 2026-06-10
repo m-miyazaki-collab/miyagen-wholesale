@@ -198,9 +198,17 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
 <div style="text-align:center;background:white;padding:48px 40px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.1);max-width:360px;width:90%">
 <h1 style="font-size:1.3rem;margin:0 0 4px;color:#1a1a2e;font-weight:bold">MIYAGEN Trail Engineering</h1>
 <p style="color:#666;margin:0 0 24px;font-size:0.85rem">取引先専用 卸注文ページ</p>
-<div id="auth-step1">
+<div id="auth-step-pw">
+<input type="email" id="auth-pw-email" placeholder="メールアドレス" style="padding:12px 16px;font-size:1rem;border:1px solid #ddd;border-radius:8px;width:100%;box-sizing:border-box;text-align:center;outline:none">
+<input type="password" id="auth-pw-pass" placeholder="パスワード" style="margin-top:8px;padding:12px 16px;font-size:1rem;border:1px solid #ddd;border-radius:8px;width:100%;box-sizing:border-box;text-align:center;outline:none" onkeypress="if(event.key==='Enter')loginWithPassword()">
+<button id="auth-pw-btn" onclick="loginWithPassword()" style="margin-top:12px;padding:12px 0;width:100%;font-size:1rem;background:#1a1a2e;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold">ログイン</button>
+<button onclick="showOtpFlow()" style="margin-top:10px;padding:8px 0;width:100%;font-size:0.82rem;background:none;border:1px solid #ddd;border-radius:8px;cursor:pointer;color:#666">パスワードがわからない方はこちら（メール認証でログイン）</button>
+<p style="font-size:0.72rem;color:#aaa;margin:14px 0 0">パスワードのお問い合わせは宮崎まで</p>
+</div>
+<div id="auth-step1" style="display:none">
 <input type="email" id="auth-email" placeholder="メールアドレス" style="padding:12px 16px;font-size:1rem;border:1px solid #ddd;border-radius:8px;width:100%;box-sizing:border-box;text-align:center;outline:none" onkeypress="if(event.key==='Enter')sendAuthCode()">
 <button id="auth-send-btn" onclick="sendAuthCode()" style="margin-top:12px;padding:12px 0;width:100%;font-size:1rem;background:#1a1a2e;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold">認証コードを送信</button>
+<button onclick="document.getElementById('auth-step1').style.display='none';document.getElementById('auth-step-pw').style.display='';document.getElementById('auth-err').style.display='none'" style="margin-top:8px;padding:8px 0;width:100%;font-size:0.85rem;background:none;border:1px solid #ddd;border-radius:8px;cursor:pointer;color:#666">パスワードでログインに戻る</button>
 </div>
 <div id="auth-step2" style="display:none">
 <p style="font-size:0.85rem;color:#666;margin-bottom:12px" id="auth-sent-msg"></p>
@@ -214,10 +222,36 @@ header{background:white;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.1);di
 <script>
 (function(){
 var GU='https://script.google.com/macros/s/AKfycbyJzifhlzFb0TRFHJ6LLm8UpVo0DbGjWL7a3tgeigmiWUqhGL9xaZOiqTk9i6x2dJgI/exec';
-var K='miyagen_auth',KE='miyagen_auth_email',E=30*24*60*60*1000;
+var K='miyagen_auth',KE='miyagen_auth_email',E=90*24*60*60*1000; // [2026-06-11] パスワードログイン導入に合わせ30日→90日に延長
 var s=localStorage.getItem(K),e=localStorage.getItem(KE);
 if(s&&e&&Date.now()-parseInt(s)<E){document.getElementById('auth-gate').style.display='none'}
 var authEmail='';
+async function sha256HexClient(str){
+  var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
+}
+window.showOtpFlow=function(){
+  document.getElementById('auth-step-pw').style.display='none';
+  document.getElementById('auth-step1').style.display='';
+  document.getElementById('auth-err').style.display='none';
+};
+window.loginWithPassword=async function(){
+  var email=(document.getElementById('auth-pw-email').value||'').trim();
+  var pw=document.getElementById('auth-pw-pass').value||'';
+  var errEl=document.getElementById('auth-err');errEl.style.display='none';
+  if(!email||!email.match(/^[^@]+@[^@]+\.[^@]+$/)){errEl.textContent='正しいメールアドレスを入力してください';errEl.style.display='block';return}
+  if(!pw){errEl.textContent='パスワードを入力してください';errEl.style.display='block';return}
+  var btn=document.getElementById('auth-pw-btn');btn.disabled=true;btn.textContent='確認中...';
+  var hash='';
+  try{hash=await sha256HexClient('miyagen-portal-v1:'+pw)}catch(hx){btn.disabled=false;btn.textContent='ログイン';errEl.textContent='このブラウザでは利用できません。「メール認証でログイン」をお使いください';errEl.style.display='block';return}
+  var cb='pwLoginCb_'+Date.now();var sc=document.createElement('script');
+  window[cb]=function(data){try{sc.remove()}catch(x){}delete window[cb];btn.disabled=false;btn.textContent='ログイン';
+    if(data&&data.status==='ok'){localStorage.setItem(K,Date.now().toString());localStorage.setItem(KE,email);document.getElementById('auth-gate').style.display='none';if(typeof initAfterLogin==='function')initAfterLogin(email)}
+    else{errEl.textContent=(data&&data.message)||'ログインに失敗しました';errEl.style.display='block'}};
+  sc.src=GU+'?action=verify_password&email='+encodeURIComponent(email)+'&hash='+encodeURIComponent(hash)+'&callback='+cb;
+  sc.onerror=function(){try{sc.remove()}catch(x){}delete window[cb];btn.disabled=false;btn.textContent='ログイン';errEl.textContent='通信エラーが発生しました';errEl.style.display='block'};
+  document.body.appendChild(sc);
+};
 window.sendAuthCode=function(){
   var email=(document.getElementById('auth-email').value||'').trim();
   var errEl=document.getElementById('auth-err');errEl.style.display='none';
@@ -347,7 +381,7 @@ window.verifyAuthCode=function(){
 
 // === バージョン管理: デプロイ時にインクリメント ===
 // [2026-05-27] 商品マスタ v2 移行: 旧キャッシュ (get_products から取った旧形式) を強制クリア
-var APP_VERSION='20260528-postrename';
+var APP_VERSION='20260611-pwlogin';
 (function(){
   var prev=localStorage.getItem('miyagen_app_version');
   if(prev && prev!==APP_VERSION){
