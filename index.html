@@ -346,7 +346,8 @@ window.verifyAuthCode=function(){
 <script>
 
 // === バージョン管理: デプロイ時にインクリメント ===
-var APP_VERSION='20260423c';
+// [2026-05-27] 商品マスタ v2 移行: 旧キャッシュ (get_products から取った旧形式) を強制クリア
+var APP_VERSION='20260528-postrename';
 (function(){
   var prev=localStorage.getItem('miyagen_app_version');
   if(prev && prev!==APP_VERSION){
@@ -375,9 +376,46 @@ var cached=localStorage.getItem('miyagen_products_cache');
 var cacheTime=localStorage.getItem('miyagen_products_cache_time');
 if(cached&&cacheTime&&(Date.now()-parseInt(cacheTime))<120000){try{PRODUCTS=JSON.parse(cached);productsLoaded=true;onProductsReady();return}catch(e){}}
 document.getElementById('products-grid').innerHTML='<div style="text-align:center;padding:60px;color:#aaa;font-size:16px">商品データを読み込み中...</div>';
+// [2026-05-27] 新マスタ「商品マスタ_v2」(22 列、完全 SKU 形式) → 旧 PRODUCTS フィールド名互換アダプター
+// 既存コード (cart / order submission / reorder) は p.sku/p.color/p.image 等を参照しているため、
+// adapter で旧仕様にマッピング + 新フィールド (p.full_sku/p.color_jp/p.color_hex 等) も併載する。
+// 注文記録の SKU 完全化 (引き継ぎ書 C-4) は Phase 2-D で GAS の processOrder と一括変更。
+function adaptV2ProductForShop(p){
+  return {
+    sku: String(p.product_code || ''),
+    name_jp: p.name_jp || '',
+    name_en: p.name_en || '',
+    color: p.color_code || '',
+    size: p.size || '',
+    stock: Number(p.stock) || 0,
+    wholesale_ok: p.wholesale_ok || 'OK',
+    wholesale_price: Number(p.wholesale_price) || 0,
+    retail_price: Number(p.retail_price) || 0,
+    tax_rate: Number(p.tax_rate) || 0.1,
+    tax_inclusive_price: Number(p.tax_inclusive_price) || 0,
+    hidden: !!p.hidden,
+    is_discontinued: !!p.is_discontinued,
+    image: p.image_url || '',
+    base_url: '', category_main: '', category_mid: '', category_sub: '',
+    description: '', is_new: false, is_new_color: false,
+    // 新マスタ固有
+    full_sku: p.SKU || '',
+    product_code: String(p.product_code || ''),
+    color_code: p.color_code || '',
+    color_jp: p.color_jp || '',
+    color_hex: p.color_hex || '',
+    btob_show: p.btob_show || 'ON',
+    wholesale_rate: Number(p.wholesale_rate) || 0,
+    shopify_variant_gid: p.shopify_variant_gid || '',
+    shopify_inventory_item_id: p.shopify_inventory_item_id || '',
+    updated_at: p.updated_at || '',
+  };
+}
+// 完全 SKU パーサー (将来 C-4 で注文記録に使う)
+function parseFullSku(sku){var parts=String(sku||'').split('-');return{product_code:parts[0]||'',color:parts[1]||'',size:parts[2]||''}}
 var s=document.createElement('script');
-window.productsCallback=function(data){try{s.remove()}catch(e){}delete window.productsCallback;if(data&&data.products){PRODUCTS=data.products;if(data.colorMap){COLOR_MAP=data.colorMap;localStorage.setItem('miyagen_colormap_cache',JSON.stringify(COLOR_MAP))}localStorage.setItem('miyagen_products_cache',JSON.stringify(PRODUCTS));localStorage.setItem('miyagen_products_cache_time',String(Date.now()));productsLoaded=true;onProductsReady()}};
-s.src=GAS_URL+'?action=get_products&callback=productsCallback';
+window.productsCallback=function(data){try{s.remove()}catch(e){}delete window.productsCallback;if(data&&data.products){PRODUCTS=data.products.map(adaptV2ProductForShop);if(data.colorMap){COLOR_MAP=data.colorMap;localStorage.setItem('miyagen_colormap_cache',JSON.stringify(COLOR_MAP))}localStorage.setItem('miyagen_products_cache',JSON.stringify(PRODUCTS));localStorage.setItem('miyagen_products_cache_time',String(Date.now()));productsLoaded=true;onProductsReady()}};
+s.src=GAS_URL+'?action=get_products_v2&callback=productsCallback&_='+Date.now();
 s.onerror=function(){try{s.remove()}catch(e){}if(cached){try{PRODUCTS=JSON.parse(cached);productsLoaded=true;onProductsReady()}catch(e){}}else{document.getElementById('products-grid').innerHTML='<div style="text-align:center;padding:60px;color:#e63946">商品データを読み込めませんでした。ページを再読み込みしてください。</div>'}};
 document.body.appendChild(s);
 }
@@ -411,29 +449,54 @@ const FILTER_CATEGORIES=[
 function initFilters(){const bar=document.getElementById('filter-bar');bar.innerHTML='';FILTER_CATEGORIES.forEach(cat=>{const btn=document.createElement('button');btn.className='filter-btn'+(cat.label===currentFilter?' active':'');btn.textContent=cat.label;btn.onclick=()=>{currentFilter=cat.label;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderProducts()};bar.appendChild(btn)})}
 function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function getProductKey(p){return p.sku+'_'+(p.color||'')+'_'+(p.size||'')}
-function filterProducts(){const cat=FILTER_CATEGORIES.find(c=>c.label===currentFilter)||FILTER_CATEGORIES[0];let f=PRODUCTS.filter(p=>!p.hidden).filter(cat.match);if(searchQuery){const q=searchQuery.toLowerCase();f=f.filter(p=>(p.name_jp||'').toLowerCase().includes(q)||(p.name_en||'').toLowerCase().includes(q)||(p.color||'').toLowerCase().includes(q)||(p.category_mid||'').toLowerCase().includes(q)||String(p.sku).includes(q))}return sortProducts(f)}
+function filterProducts(){
+  // [2026-05-27] hidden=true (btob_show=OFF) は顧客 UI で非表示
+  // is_discontinued=true は表示するが stock<=0 なら自動的に「SOLD OUT」(既存 .out-of-stock スタイル)
+  const cat=FILTER_CATEGORIES.find(c=>c.label===currentFilter)||FILTER_CATEGORIES[0];
+  let f=PRODUCTS.filter(p=>!p.hidden).filter(cat.match);
+  if(searchQuery){
+    const q=searchQuery.toLowerCase();
+    f=f.filter(p=>(p.name_jp||'').toLowerCase().includes(q)
+      ||(p.name_en||'').toLowerCase().includes(q)
+      ||(p.color||'').toLowerCase().includes(q)
+      ||(p.color_jp||'').toLowerCase().includes(q)  // 日本語カラー名でも検索可
+      ||(p.category_mid||'').toLowerCase().includes(q)
+      ||String(p.sku).includes(q)
+      ||String(p.full_sku||'').toLowerCase().includes(q));  // 完全 SKU でも検索可
+  }
+  return sortProducts(f);
+}
 function sortProducts(arr){const m=document.getElementById('sort-select')?.value||'name-asc';const s=[...arr];switch(m){case'sku-asc':return s.sort((a,b)=>a.sku-b.sku);case'sku-desc':return s.sort((a,b)=>b.sku-a.sku);case'price-asc':return s.sort((a,b)=>a.wholesale_price-b.wholesale_price);case'price-desc':return s.sort((a,b)=>b.wholesale_price-a.wholesale_price);case'name-asc':return s.sort((a,b)=>(a.name_en||'').localeCompare(b.name_en||''));case'stock-desc':return s.sort((a,b)=>b.stock-a.stock);default:return s.sort((a,b)=>{const ao=a.wholesale_ok==='OK'&&a.stock>0?0:1;const bo=b.wholesale_ok==='OK'&&b.stock>0?0:1;if(ao!==bo)return ao-bo;return(a.name_en||'').localeCompare(b.name_en||'')})}}
 
 function renderProducts(){
   const grid=document.getElementById('products-grid');const filtered=filterProducts();grid.innerHTML='';
   if(filtered.length===0){const emptyMsg=currentFilter==='♥ お気に入り'?'♡ お気に入りに追加した商品がここに表示されます。\n商品カードのハートマークをタップして追加できます。':'該当する商品が見つかりません。';grid.innerHTML='<div class="empty-state">'+emptyMsg.replace(/\n/g,'<br>')+'</div>';return}
   filtered.forEach(p=>{
-    const key=getProductKey(p);const canOrder=p.wholesale_ok==='OK'&&p.stock>0;const colorVal=COLOR_MAP[p.color]||'#ccc';const isRainbow=(colorVal==='rainbow');const colorHex=isRainbow?'':colorVal;
+    // [2026-05-27 安全装置] 卸価格 0 円の SKU は注文不可 (variations データ未整備時の 0 円販売防止)
+    const key=getProductKey(p);const canOrder=p.wholesale_ok==='OK'&&p.stock>0&&Number(p.wholesale_price)>0;
+    // [2026-05-27] 新マスタ color_hex 優先利用、フォールバック COLOR_MAP
+    const colorVal=p.color_hex||COLOR_MAP[p.color]||'#ccc';const isRainbow=(colorVal==='rainbow');const colorHex=isRainbow?'':colorVal;
+    // 色名表示: 日本語優先 (color_jp) → 英コード fallback
+    const colorDisplay=p.color_jp||p.color||'';
+    // 終売在庫消化中: is_discontinued=true && stock>0 で「在庫消化中」表記
+    const terminating=p.is_discontinued&&p.stock>0;
     const card=document.createElement('div');card.className='product-card'+(canOrder?'':' out-of-stock');
     const safeName=escHtml(p.name_en||p.name_jp||'');
     const faved=isFavorite(key);
+    // wholesale_rate (新) を優先、互換のため discount_rate もチェック
+    const rateForDisplay=Number(p.wholesale_rate||p.discount_rate||0);
     card.innerHTML=`
-      <span class="sku-overlay">#${escHtml(p.sku)}</span>
+      <span class="sku-overlay">#${escHtml(p.full_sku||p.sku)}</span>
       <button class="fav-btn${faved?' active':''}" onclick="event.stopPropagation();toggleFavorite('${key}')">${faved?'♥':'♡'}</button>
       <div class="img-wrap">${p.image?`<img src="${escHtml(p.image+(p.image.indexOf('?')>=0?'&':'?')+'width=400')}" alt="${escHtml(p.name_en)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>${safeName}</div>'">`:`<div class="no-img">${escHtml(p.name_en||p.name_jp)}</div>`}</div>
       <div class="product-info">
         <h3 title="${escHtml(p.name_en||p.name_jp)}">${escHtml(p.name_en||p.name_jp)}</h3>
         <div class="name-jp" title="${escHtml(p.name_jp)}">${escHtml(p.name_jp)}</div>
-        <div class="color-bar-wrap"><div class="color-bar" style="background:${isRainbow?'linear-gradient(135deg,#ef4444,#f97316,#eab308,#22c55e,#3b82f6,#a855f7)':colorHex}${p.color==='WHITE'?';border:1px solid #ddd':''}"></div><div class="color-bar-label">${escHtml(p.color)}${p.size&&p.size!=='-'?' / '+escHtml(p.size):''}</div></div>
-        <div class="product-badges">${p.is_new?'<span class="badge-new">NEW</span>':''}${p.is_new_color?'<span class="badge-new-color">NEW COLOR</span>':''}${p.stock<=0?'<span class="badge-stock">在庫切れ</span>':''}${p.is_discontinued?'<span class="badge-discontinued">終売</span>':''}</div>
+        <div class="color-bar-wrap"><div class="color-bar" style="background:${isRainbow?'linear-gradient(135deg,#ef4444,#f97316,#eab308,#22c55e,#3b82f6,#a855f7)':colorHex}${(p.color==='WHITE'||p.color_code==='WHITE'||p.color_code==='WT')?';border:1px solid #ddd':''}"></div><div class="color-bar-label">${escHtml(colorDisplay)}${p.size&&p.size!=='-'?' / '+escHtml(p.size):''}</div></div>
+        <div class="product-badges">${p.is_new?'<span class="badge-new">NEW</span>':''}${p.is_new_color?'<span class="badge-new-color">NEW COLOR</span>':''}${p.stock<=0?'<span class="badge-stock">在庫切れ</span>':''}${terminating?'<span class="badge-discontinued" style="background:#fff7e6;color:#b45309;border:1px solid #fbbf24">在庫消化中</span>':p.is_discontinued?'<span class="badge-discontinued">終売</span>':''}</div>
         <div class="stock-info">${canOrder?(p.stock<=5?'残り'+p.stock+'個':''):(p.stock<=0?'在庫なし':'注文不可')}</div>
         <div class="price-line"><span class="wholesale-price">¥${p.wholesale_price.toLocaleString()}</span><span class="retail-price">定価 ¥${p.retail_price.toLocaleString()} 税抜</span></div>
-        <div class="rate-info"><span class="rate-tag">掛率 ${Math.round(p.discount_rate*100)}%</span><span class="rate-tag">税率 ${Math.round(p.tax_rate*100)}%</span></div>
+        <div class="rate-info"><span class="rate-tag">掛率 ${Math.round(rateForDisplay*100)}%</span><span class="rate-tag">税率 ${Math.round(p.tax_rate*100)}%</span></div>
         ${canOrder?`<div class="qty-row"><button class="qty-btn" onclick="changeQty(this,-1)">−</button><input type="number" class="qty-input" value="1" min="1" max="${p.stock}" data-key="${key}" onchange="var v=parseInt(this.value)||1;this.value=Math.max(1,Math.min(${p.stock},v))"><button class="qty-btn" onclick="changeQty(this,1)">+</button></div><button class="add-btn" onclick="addToCart('${key}',this)">カートに追加</button>`:'<div class="no-order">注文不可</div>'}
       </div>`;
     grid.appendChild(card);
@@ -452,7 +515,13 @@ function renderCartSidebar(){
   const items=document.getElementById('cart-items');const footer=document.getElementById('cart-footer');updateCartBadge();
   const clearBtn=document.getElementById('cart-clear-btn');if(clearBtn)clearBtn.style.display=cart.length>0?'inline-block':'none';
   if(cart.length===0){items.innerHTML='<div class="cart-empty">カートは空です</div>';footer.innerHTML='';return}
-  const sortedCart=[...cart].sort((a,b)=>String(b.product.sku||'').localeCompare(String(a.product.sku||'')));items.innerHTML=sortedCart.map(i=>{const p=i.product;const key=getProductKey(p);const colorHex=COLOR_MAP[p.color]||'#ccc';const thumbHtml=p.image?`<img class="item-thumb" src="${escHtml(p.image)}" alt="">`:`<span class="item-color-dot" style="width:36px;height:36px;border-radius:4px;background:${colorHex}"></span>`;return`<div class="cart-item">${thumbHtml}<div class="item-body"><div class="item-name">${escHtml(p.name_en||p.name_jp)}</div><div class="item-detail">${escHtml(p.color)}${p.size!=='-'?' / '+escHtml(p.size):''}</div><div class="item-row2"><div class="item-qty"><button onclick="updateCartQty('${key}',${i.quantity-1})">-</button><input value="${i.quantity}" onchange="updateCartQty('${key}',parseInt(this.value)||1)"><button onclick="updateCartQty('${key}',${i.quantity+1})">+</button></div><div class="item-price">¥${(p.wholesale_price*i.quantity).toLocaleString()}</div></div></div><button class="item-remove" onclick="removeFromCart('${key}')">&times;</button></div>`}).join('');
+  const sortedCart=[...cart].sort((a,b)=>String(b.product.sku||'').localeCompare(String(a.product.sku||'')));items.innerHTML=sortedCart.map(i=>{const p=i.product;const key=getProductKey(p);
+    // [2026-05-27] color_hex 直接利用 + 色名は日本語優先
+    const colorHex=p.color_hex||COLOR_MAP[p.color]||'#ccc';
+    const colorTxt=p.color_jp||p.color||'';
+    const thumbHtml=p.image?`<img class="item-thumb" src="${escHtml(p.image)}" alt="">`:`<span class="item-color-dot" style="width:36px;height:36px;border-radius:4px;background:${colorHex}"></span>`;
+    return`<div class="cart-item">${thumbHtml}<div class="item-body"><div class="item-name">${escHtml(p.name_en||p.name_jp)}</div><div class="item-detail">${escHtml(colorTxt)}${p.size&&p.size!=='-'?' / '+escHtml(p.size):''}</div><div class="item-row2"><div class="item-qty"><button onclick="updateCartQty('${key}',${i.quantity-1})">-</button><input value="${i.quantity}" onchange="updateCartQty('${key}',parseInt(this.value)||1)"><button onclick="updateCartQty('${key}',${i.quantity+1})">+</button></div><div class="item-price">¥${(p.wholesale_price*i.quantity).toLocaleString()}</div></div></div><button class="item-remove" onclick="removeFromCart('${key}')">&times;</button></div>`
+  }).join('');
   const subtotal=cart.reduce((s,i)=>s+i.product.wholesale_price*i.quantity,0);const shipping=subtotal<30000?1000:0;
   const tax10=Math.floor(cart.filter(i=>i.product.tax_rate===0.1).reduce((s,i)=>s+i.product.wholesale_price*i.quantity,0)*0.1);
   const tax8=Math.floor(cart.filter(i=>i.product.tax_rate===0.08).reduce((s,i)=>s+i.product.wholesale_price*i.quantity,0)*0.08);
@@ -491,11 +560,15 @@ function saveFormData(){const form=document.getElementById('checkout-form');cons
 function loadFormData(){const s=JSON.parse(localStorage.getItem('miyagen_form')||'{}');const form=document.getElementById('checkout-form');Object.entries(s).forEach(([k,v])=>{const el=form.querySelector(`[name="${k}"]`);if(el&&v)el.value=v})}
 function openCheckout(){renderCheckoutReview();loadFormData();document.getElementById('checkout-overlay').classList.add('open')}
 function closeCheckout(){document.getElementById('checkout-overlay').classList.remove('open')}
-function renderCheckoutReview(){const tbody=document.querySelector('#review-table tbody');tbody.innerHTML='';[...cart].sort((a,b)=>String(b.product.sku||'').localeCompare(String(a.product.sku||''))).forEach(i=>{const p=i.product;const key=getProductKey(p);const row=document.createElement('tr');row.innerHTML=`<td><span style="font-weight:bold">${escHtml(p.name_en||p.name_jp)}</span> <span style="color:#e63946;font-weight:bold">${escHtml(p.color)}</span>${p.size&&p.size!=='-'?' / '+escHtml(p.size):''}<br><small style="color:#aaa">#${escHtml(p.sku)}</small></td><td class="qty-cell"><input type="number" value="${i.quantity}" min="1" max="${p.stock}" data-checkout-key="${key}" onchange="updateCheckoutQty(this)"></td><td>${formatPrice(p.wholesale_price)}</td><td>${formatPrice(p.wholesale_price*i.quantity)}</td>`;tbody.appendChild(row)});updateCheckoutTotal()}
+function renderCheckoutReview(){const tbody=document.querySelector('#review-table tbody');tbody.innerHTML='';[...cart].sort((a,b)=>String(b.product.sku||'').localeCompare(String(a.product.sku||''))).forEach(i=>{const p=i.product;const key=getProductKey(p);const row=document.createElement('tr');
+  // [2026-05-27] 色名は日本語 (color_jp) 優先、SKU は完全形式 (full_sku) 表示
+  const colorTxt=p.color_jp||p.color||'';
+  const skuTxt=p.full_sku||p.sku||'';
+  row.innerHTML=`<td><span style="font-weight:bold">${escHtml(p.name_en||p.name_jp)}</span> <span style="color:#e63946;font-weight:bold">${escHtml(colorTxt)}</span>${p.size&&p.size!=='-'?' / '+escHtml(p.size):''}<br><small style="color:#aaa">#${escHtml(skuTxt)}</small></td><td class="qty-cell"><input type="number" value="${i.quantity}" min="1" max="${p.stock}" data-checkout-key="${key}" onchange="updateCheckoutQty(this)"></td><td>${formatPrice(p.wholesale_price)}</td><td>${formatPrice(p.wholesale_price*i.quantity)}</td>`;tbody.appendChild(row)});updateCheckoutTotal()}
 function updateCheckoutQty(input){const key=input.dataset.checkoutKey;const item=cart.find(i=>getProductKey(i.product)===key);if(item){item.quantity=Math.max(1,Math.min(parseInt(input.value)||1,item.product.stock));input.value=item.quantity;saveCart();renderCheckoutReview();renderCartSidebar();updateCartBadge()}}
 function updateCheckoutTotal(){const subtotal=cart.reduce((s,i)=>s+i.product.wholesale_price*i.quantity,0);const shipping=subtotal<30000?1000:0;const tax10=Math.floor(cart.filter(i=>i.product.tax_rate===0.1).reduce((s,i)=>s+i.product.wholesale_price*i.quantity,0)*0.1);const tax8=Math.floor(cart.filter(i=>i.product.tax_rate===0.08).reduce((s,i)=>s+i.product.wholesale_price*i.quantity,0)*0.08);const total=subtotal+shipping+tax10+tax8;document.getElementById('order-total').innerHTML=`<div class="line"><span>小計</span><span>${formatPrice(subtotal)}</span></div><div class="line"><span>送料</span><span>${formatPrice(shipping)}</span></div><div class="line"><span>税金 (10%)</span><span>${formatPrice(tax10)}</span></div>${tax8>0?`<div class="line"><span>税金 (8%)</span><span>${formatPrice(tax8)}</span></div>`:``}<div class="line total"><span>合計</span><span>${formatPrice(total)}</span></div>`}
 function checkStockBeforeOrder(items){return new Promise((resolve,reject)=>{const cbName='stockCheckCb_'+Date.now();const s=document.createElement('script');window[cbName]=function(data){try{s.remove()}catch(e){}delete window[cbName];resolve(data)};s.src=GAS_URL+'?action=check_stock&items='+encodeURIComponent(JSON.stringify(items))+'&callback='+cbName;s.onerror=function(){try{s.remove()}catch(e){}delete window[cbName];resolve({ok:true})};document.body.appendChild(s);setTimeout(()=>{if(window[cbName]){delete window[cbName];try{s.remove()}catch(e){}resolve({ok:true})}},10000)})}
-async function submitOrder(){const form=document.getElementById('checkout-form');const fd=new FormData(form);if(!fd.get('company_name')||!fd.get('contact_name')||!fd.get('email')||!fd.get('phone')){alert('必須項目を入力してください');return}if(!fd.get('ship_name')){alert('配送先名を入力してください');return}if(!fd.get('ship_address')&&!fd.get('ship_postal')){alert('配送先住所または郵便番号を入力してください');return}if(!GAS_URL){alert('GAS_URLが設定されていません');return}saveFormData();const orderItems=cart.map(i=>({sku:i.product.sku,color:i.product.color||'-',size:i.product.size||'-',qty:i.quantity}));const btn=document.getElementById('submit-btn');btn.disabled=true;btn.textContent='在庫確認中...';const spinner=document.createElement('div');spinner.className='spinner-overlay';spinner.innerHTML='<div class="spinner"></div><div class="spinner-text">在庫を確認しています...</div>';document.body.appendChild(spinner);try{const stockResult=await checkStockBeforeOrder(orderItems);if(stockResult&&!stockResult.ok){spinner.remove();btn.disabled=false;btn.textContent='注文を確定する';let msg='作業中に在庫が変動しました。\n以下の商品の在庫が不足しています:\n\n';if(stockResult.shortage){stockResult.shortage.forEach(s=>{msg+=s.name+' ('+s.color+'/'+s.size+')\n  注文: '+s.requested+'個 → 在庫: '+s.available+'個\n'})}msg+='\nカートの数量を調整してください。';alert(msg);localStorage.removeItem('miyagen_products_cache');localStorage.removeItem('miyagen_products_cache_time');localStorage.removeItem('miyagen_colormap_cache');return}spinner.querySelector('.spinner-text').textContent='注文を送信しています...';const orderData={company:fd.get('company_name'),contact:fd.get('contact_name'),email:fd.get('email'),phone:fd.get('phone'),ship_name:fd.get('ship_name')||'',ship_postal:fd.get('ship_postal')||'',ship_pref:fd.get('ship_pref')||'',ship_address:fd.get('ship_address')||'',ship_phone:fd.get('ship_phone')||'',notes:fd.get('notes')||'',items:orderItems,order_date:new Date().toISOString()};const jsonStr=JSON.stringify(orderData);const cbName='orderCb_'+Date.now();const encodedPayload=encodeURIComponent(jsonStr);const orderUrl=GAS_URL+'?payload='+encodedPayload+'&callback='+cbName;const result=await new Promise((resolve)=>{const s=document.createElement('script');window[cbName]=function(data){try{s.remove()}catch(e){}delete window[cbName];resolve(data)};s.src=orderUrl;s.onerror=function(){try{s.remove()}catch(e){}delete window[cbName];resolve({status:'error',message:'ネットワークエラー'})};document.body.appendChild(s);setTimeout(()=>{if(window[cbName]){delete window[cbName];try{s.remove()}catch(e){}resolve({status:'timeout'})}},30000)});spinner.remove();if(result.status==='ok'){cart=[];saveCart();localStorage.removeItem('miyagen_products_cache');localStorage.removeItem('miyagen_products_cache_time');localStorage.removeItem('miyagen_colormap_cache');orderHistoryCache=null;showThankyou()}else if(result.status==='stock_error'){alert('在庫不足のため注文できませんでした:\n'+result.message+'\n\nカートの数量を調整してください。');localStorage.removeItem('miyagen_products_cache');localStorage.removeItem('miyagen_products_cache_time');localStorage.removeItem('miyagen_colormap_cache')}else{alert('注文の送信に失敗しました。もう一度お試しください。')}}catch(e){spinner.remove();alert('送信エラーが発生しました: '+e.message)}finally{btn.disabled=false;btn.textContent='注文を確定する'}}
+async function submitOrder(){const form=document.getElementById('checkout-form');const fd=new FormData(form);if(!fd.get('company_name')||!fd.get('contact_name')||!fd.get('email')||!fd.get('phone')){alert('必須項目を入力してください');return}if(!fd.get('ship_name')){alert('配送先名を入力してください');return}if(!fd.get('ship_address')&&!fd.get('ship_postal')){alert('配送先住所または郵便番号を入力してください');return}if(!GAS_URL){alert('GAS_URLが設定されていません');return}saveFormData();const SIZE_ORD_=['XS','S','M','L','XL','XXL','2XL','3XL','-','F','ONE','2L','5L','10L'];const orderItems=[...cart].sort((a,b)=>{const s1=String(a.product.sku||''),s2=String(b.product.sku||'');if(s1!==s2)return s1.localeCompare(s2);const c1=a.product.color||'-',c2=b.product.color||'-';if(c1!==c2)return c1.localeCompare(c2);const i1=SIZE_ORD_.indexOf(a.product.size||'-'),i2=SIZE_ORD_.indexOf(b.product.size||'-');return(i1<0?99:i1)-(i2<0?99:i2)}).map(i=>({sku:i.product.sku,color:i.product.color||'-',size:i.product.size||'-',qty:i.quantity}));const btn=document.getElementById('submit-btn');btn.disabled=true;btn.textContent='在庫確認中...';const spinner=document.createElement('div');spinner.className='spinner-overlay';spinner.innerHTML='<div class="spinner"></div><div class="spinner-text">在庫を確認しています...</div>';document.body.appendChild(spinner);try{const stockResult=await checkStockBeforeOrder(orderItems);if(stockResult&&!stockResult.ok){spinner.remove();btn.disabled=false;btn.textContent='注文を確定する';let msg='作業中に在庫が変動しました。\n以下の商品の在庫が不足しています:\n\n';if(stockResult.shortage){stockResult.shortage.forEach(s=>{msg+=s.name+' ('+s.color+'/'+s.size+')\n  注文: '+s.requested+'個 → 在庫: '+s.available+'個\n'})}msg+='\nカートの数量を調整してください。';alert(msg);localStorage.removeItem('miyagen_products_cache');localStorage.removeItem('miyagen_products_cache_time');localStorage.removeItem('miyagen_colormap_cache');return}spinner.querySelector('.spinner-text').textContent='注文を送信しています...';const orderData={company:fd.get('company_name'),contact:fd.get('contact_name'),email:fd.get('email'),phone:fd.get('phone'),ship_name:fd.get('ship_name')||'',ship_postal:fd.get('ship_postal')||'',ship_pref:fd.get('ship_pref')||'',ship_address:fd.get('ship_address')||'',ship_phone:fd.get('ship_phone')||'',notes:fd.get('notes')||'',items:orderItems,order_date:new Date().toISOString()};const jsonStr=JSON.stringify(orderData);const cbName='orderCb_'+Date.now();const encodedPayload=encodeURIComponent(jsonStr);const orderUrl=GAS_URL+'?payload='+encodedPayload+'&callback='+cbName;const result=await new Promise((resolve)=>{const s=document.createElement('script');window[cbName]=function(data){try{s.remove()}catch(e){}delete window[cbName];resolve(data)};s.src=orderUrl;s.onerror=function(){try{s.remove()}catch(e){}delete window[cbName];resolve({status:'error',message:'ネットワークエラー'})};document.body.appendChild(s);setTimeout(()=>{if(window[cbName]){delete window[cbName];try{s.remove()}catch(e){}resolve({status:'timeout'})}},30000)});spinner.remove();if(result.status==='ok'){cart=[];saveCart();localStorage.removeItem('miyagen_products_cache');localStorage.removeItem('miyagen_products_cache_time');localStorage.removeItem('miyagen_colormap_cache');orderHistoryCache=null;showThankyou()}else if(result.status==='stock_error'){alert('在庫不足のため注文できませんでした:\n'+result.message+'\n\nカートの数量を調整してください。');localStorage.removeItem('miyagen_products_cache');localStorage.removeItem('miyagen_products_cache_time');localStorage.removeItem('miyagen_colormap_cache')}else if(result.status==='price_not_set'){alert('卸価格が未設定の商品があり、注文できませんでした:\n'+result.message+'\n\n申し訳ありません。MIYAGEN にお問い合わせください。');localStorage.removeItem('miyagen_products_cache');localStorage.removeItem('miyagen_products_cache_time');localStorage.removeItem('miyagen_colormap_cache')}else if(result.status==='duplicate_order'){alert('同じ注文が既に処理されています:\n'+result.message)}else{alert('注文の送信に失敗しました。もう一度お試しください。')}}catch(e){spinner.remove();alert('送信エラーが発生しました: '+e.message)}finally{btn.disabled=false;btn.textContent='注文を確定する'}}
 
 
 // Events

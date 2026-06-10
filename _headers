@@ -3,3 +3,9 @@
 
 /
   Cache-Control: no-cache, must-revalidate
+
+/admin
+  Cache-Control: no-cache, must-revalidate
+
+/admin.html
+  Cache-Control: no-cache, must-revalidate
