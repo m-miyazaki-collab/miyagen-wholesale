@@ -381,7 +381,7 @@ window.verifyAuthCode=function(){
 
 // === バージョン管理: デプロイ時にインクリメント ===
 // [2026-05-27] 商品マスタ v2 移行: 旧キャッシュ (get_products から取った旧形式) を強制クリア
-var APP_VERSION='20260611-ordertoken';
+var APP_VERSION='20260611-ordertoken2';
 (function(){
   var prev=localStorage.getItem('miyagen_app_version');
   if(prev && prev!==APP_VERSION){
@@ -623,7 +623,8 @@ function lookupShopByEmail(email){
       autoFillCompanyInfo(shopEntries);
     }
   };
-  s.src=GAS_URL+'?action=lookupShop&email='+encodeURIComponent(email)+'&callback=shopLookupCallback';
+  var lsTok=localStorage.getItem('miyagen_auth_token')||'';
+  s.src=GAS_URL+'?action=lookupShop&email='+encodeURIComponent(email)+'&token='+encodeURIComponent(lsTok)+'&callback=shopLookupCallback';
   document.body.appendChild(s);
 }
 function autoFillCompanyInfo(shops){
